@@ -3,7 +3,7 @@
 <h1>From Blobs to Spokes: High-Fidelity Surface Reconstruction via Oriented Gaussians</h1>
 
 <font size="4">
-<a href="https://www.lix.polytechnique.fr/Labo/Diego.GOMEZ/">Diego Gomez*<sup>1</sup></a>&emsp;
+<a href="https://diego1401.github.io">Diego Gomez*<sup>1</sup></a>&emsp;
 <a href="https://anttwo.github.io/">Antoine Guédon*<sup>1</sup></a>&emsp;
 <a href="https://nissmar.github.io/">Nissim Maruani<sup>1,2</sup></a>&emsp;
 <a href="https://s2.hk/">Bingchen Gong<sup>1</sup></a>&emsp;
@@ -47,9 +47,6 @@ export PATH=/usr/local/cuda-11.8/bin:$PATH
 
 python install.py --cuda_version 11.8   # or 12.1
 ```
-
-`install.py` installs PyTorch 2.3.1, the CUDA-compiled rasterizers, nvdiffrast,
-and tetra_triangulation (requires cmake + gmp + cgal, installed automatically via conda).
 
 
 ## Training & Mesh Extraction
