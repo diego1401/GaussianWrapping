@@ -1,0 +1,16 @@
+*.pyc
+.vscode/
+*.out
+output
+build
+diff_rasterization/diff_rast.egg-info
+diff_rasterization/dist
+diff_rasterization_ms/diff_gaussian_rasterization_ms.egg-info
+diff_rasterization_ms/dist
+tensorboard_3d
+screenshots
+*.npy
+*.png
+*.ply
+*.mat
+

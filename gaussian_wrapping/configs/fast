@@ -1,0 +1,2 @@
+Namespace(iterations=18_000, densify_until_iter=3_000, aggressive_clone_from_iter=500, aggressive_clone_interval=250, warn_until_iter=3_000, depth_reinit_iter=2_000, simp_iteration1=3_000, simp_iteration2=8_000)
+

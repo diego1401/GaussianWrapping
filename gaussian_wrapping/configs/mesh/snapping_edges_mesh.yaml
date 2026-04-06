@@ -1,0 +1,127 @@
+# Regularization schedule
+start_iter: 8_001
+mesh_update_interval: 1 
+stop_iter: 18000
+
+# Depth loss weight
+use_depth_loss: true
+depth_weight: 0.05  # 0.05
+depth_ratio: 1.0  # 0.6 
+mesh_depth_loss_type: "log"  # "log"
+
+# Normal loss weight
+use_normal_loss: true  # true
+normal_weight: 0.05  # 0.05
+use_depth_normal: true  # true
+
+# Delaunay computation
+delaunay_reset_interval: 500  # 500
+n_max_points_in_delaunay: 5_400_000  # -1 for no limit
+delaunay_sampling_method: "surface"  # "random", "surface" or "surface+opacity"
+filter_large_edges: false  # TODO: Previously true, switched to false
+collapse_large_edges: true  # TODO: Previously false, switched to true
+
+# Triangulation method
+delaunay_triangulation_method: "tetranerf"  # "tetranerf" or "radfoam"
+
+# Rasterization
+use_scalable_renderer: false
+
+# SDF computation
+sdf_reset_interval: 500  # 500
+sdf_default_isosurface: 0.5  # 0.5
+transform_sdf_to_linear_space: false  # SHOULD BE FALSE
+min_occupancy_value: 0.0000000001  # 0.0000000001
+
+#   > For Integrate
+use_ema: true  # true
+alpha_ema: 0.4  # 0.4
+
+#   > For TSDF
+trunc_margin: 0.002  # 0.002
+
+#   > For learnable
+occupancy_mode: "occupancy_shift"  # "occupancy_shift" or "density_shift"
+#       > Gaussian centers regularization
+enforce_occupied: true  # true
+enforce_occupied_method: "center_of_gaussian"  # "center_of_gaussian" or "min_sdf_value"
+occupied_centers_weight: 0.005  # 0.005
+#       > Occupancy labels loss
+use_occupancy_labels_loss: true  # true or false?
+reset_occupancy_labels_every: 200  # 200
+occupancy_labels_loss_weight: 0.005  # 0.005
+#       > SDF reset
+fix_set_of_learnable_sdfs: true  # false or true?
+learnable_sdf_reset_mode: "none"  # TODO: Check this value. "none" or "ema", NOTE: Was ema before
+learnable_sdf_reset_stop_iter: 13001
+learnable_sdf_reset_alpha_ema: 0.4  # 0.4
+
+method_to_reset_sdf: "depth_fusion"  # "integration" or "depth_fusion"
+n_binary_steps_to_reset_sdf: 0  # Use 0 to disable binary search
+sdf_reset_linearization_n_steps: 20
+sdf_reset_linearization_enforce_std: 0.5  # 0.5
+depth_fusion_reset_tolerance: 0.1
+
+# Foreground Culling
+radius_culling: -1.0  # -1.0 for no culling
+
+# Snapping points
+snap_points: true
+delaunay_snapping_reset_interval: 500  # TODO: Previously 100
+snapping_method: "mesh_edges"  # "keep_one" or "mean" or "softmax" or "qem" or "mesh_edges"
+start_iter_snapping: 10000
+
+# Iterative snapping
+iterative_snapping: false
+snap_every_n_iterations: 1000  # TODO: Check this value
+stop_iterative_snapping: 15001  # TODO: Check this value
+
+#   > Snapping by computing Mean/softmax among KNN
+snap_points_K: 10  # TODO: Previously 10
+snap_points_scale_factor: 1.1  # TODO: 1.5 works pretty well for non-iterative, 1.1 works pretty well for iterative.
+k_softmax: 5000.0
+
+#   > Snapping based on QEM
+qem_mode: 'ratio'  # can be 'ratio' or 'threshold'
+qem_threshold: 0.00001  # TODO: Check this value. 0.001 or 0.01 works pretty well? But it removes only half of the points.
+qem_target_ratio: 0.25
+qem_normalization_factor: 20.0  # TODO: Check this value
+qem_average_w_face_area: true  # TODO: Check this value
+
+#   > Snapping along mesh edges
+attract_distance_mode: "threshold"  # "threshold" or "ratio"  TODO: Check this value
+attract_distance_scale_threshold: 2.  # TODO: Check this value
+attract_distance_ratio: 0.25  # TODO: Check this value
+
+# Loss to attract pivots along mesh edges
+attract_pivots_along_mesh_edges: true
+attract_pivots_along_mesh_edges_weight: 0.0005  # TODO: Check this value
+attract_distance_normalization_factor: 0.001  # TODO: Check this value
+attract_weight_by_qem: true  # TODO: Check this value
+attract_qem_normalization_factor: 20.0  # TODO: Check this value
+attract_qem_average_w_face_area: true  # TODO: Check this value
+
+# QEM loss
+use_qem_loss: false
+qem_loss_weight: 0.005  # TODO: Check this value
+start_iter_qem_loss: 8001
+end_iter_qem_loss: 10000
+
+# Geometry losses
+use_geometry_losses: false
+start_iter_geometry_losses: 8201
+#   > Angle defect
+use_angle_defect_loss: true
+angle_defect_loss_weight: 0.005  # TODO: Check this value
+#   > Area
+use_area_loss: false
+area_loss_weight: 0.005  # TODO: Check this value
+#   > Laplacian smoothing
+use_laplacian_smoothing_loss: false
+laplacian_smoothing_loss_weight: 0.005  # TODO: Check this value
+#   > Normal consistency
+use_normal_consistency_loss: false
+normal_consistency_loss_weight: 0.005  # TODO: Check this value
+#   > Non-zero SDF
+enforce_non_zero_sdf: false 
+non_zero_sdf_weight: 0.005  # 0.005

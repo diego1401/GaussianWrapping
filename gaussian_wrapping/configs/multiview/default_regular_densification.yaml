@@ -1,0 +1,22 @@
+# Fast multiview
+use_fast_multiview: false
+
+# Optimization
+start_multiview: 7000
+
+# Camera neighbors
+multi_view_max_angle: 30.0
+multi_view_min_dis_relative: 0.002  # = 0.01 / 5.0
+multi_view_max_dis_relative: 0.3  # = 1.5 / 5.0
+multi_view_num: 8
+
+# Multiview loss
+multi_view_patch_size: 3
+multi_view_pixel_noise_th: 1.0
+
+depth_ratio: 0.6
+znear_relative: 0.02  # znear relative to scene radius (0.02 = 0.1 / 5.0 with 5.0 the standard COLMAP radius)
+interpolation: "bilinear"
+
+multi_view_ncc_weight: 0.6
+multi_view_geo_weight: 0.02

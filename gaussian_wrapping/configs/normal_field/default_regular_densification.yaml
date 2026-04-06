@@ -1,0 +1,54 @@
+# General
+start_iter: 20_001
+
+# Pivots
+std_factor: 3.0
+
+# Normal field alignment
+use_normal_field_alignment: true
+align_with_rendered_normals: false  # Set to False for now.
+align_with_rendered_median_depths: true  # Set to False for now.
+align_with_rendered_expected_depths: false  # Set to True for now.
+depth_ratio_for_alignment: 0.6
+normal_field_alignment_weight: 0.05  # Tried 0.02, now set to 0.05.
+
+# Normal computation mode
+use_smallest_axis: false
+
+# Pivots management
+enforce_back_pivots_to_be_occluded: false  # Should be True?
+enforce_back_pivots_to_be_occluded_weight: 0.005  # TODO: Adjust this value
+enforce_front_pivots_to_be_visible: false  # Should be True?
+enforce_front_pivots_to_be_visible_weight: 0.005  # TODO: Adjust this value
+
+# Gaussian flattening
+enforce_gaussian_flattening: false
+enforce_gaussian_flattening_weight: 0.05  # TODO: Adjust this value
+
+# SDF
+use_sdf: false
+enforce_sdf_and_normal_field_consistency: false
+enforce_sdf_and_normal_field_consistency_weight: 0.05  # TODO: Adjust this value
+
+# Densification
+use_densification: true
+start_iter_densification: 22_000
+end_iter_densification: 26_000
+densify_every_n_iterations: 1000
+densification_normalization_method: "count"  # "count" or "area" or "none"
+densification_normal_to_use: "median_depth"  # "rendered" or "median_depth" or "expected_depth"
+# densification_normal_errors_quantile: 0.15  # Tried 0.05. 0.1 works well. Percentage of the highest normal errors to use for densification
+# densification_normal_errors_quantile: 0.10  # Tried 0.05. 0.1 works well. Percentage of the highest normal errors to use for densification
+densification_normal_errors_quantile: 0.05  # Tried 0.05. 0.1 works well. Percentage of the highest normal errors to use for densification
+maintain_constant_volume: true  # Should probably be true?
+
+reset_normals_after_densification: false
+reset_normal_directions: true
+reset_normal_signs: true
+
+
+# Pruning
+use_pruning: false
+start_iter_pruning: 22_500
+end_iter_pruning: 22_505  # Single pruning
+prune_every_n_iterations: 1000

@@ -1,0 +1,45 @@
+# Optimization
+start_iter: 27_000
+
+# Pivots
+n_pivots_per_gaussian: 2
+use_smallest_axis_as_normal: false
+use_pivots_colors: false
+
+# Delaunay computation
+delaunay_method: "tetranerf"
+reset_delaunay_every: 500
+end_reset_delaunay_iter: 29_501
+
+# Occupancy computation
+# TODO: Adjust reset iterations to match normal field densification schedule
+start_reset_base_occupancy_iter: 21_001
+end_reset_base_occupancy_iter: 25_001
+reset_base_occupancy_every: 500
+reset_occupancy_ema_ratio: 0.6
+
+# Mesh extraction
+filter_large_edges: false
+collapse_large_edges: false
+
+# Rasterization
+use_scalable_renderer: false
+rasterization_backend: "opengl"  # "opengl" or "cuda"
+
+# RGB loss
+use_rgb_loss: false
+
+# Depth loss
+use_depth_loss: true
+depth_weight: 0.05  # 0.05
+depth_ratio: 1.0  # 0.6 
+
+# Normal loss
+use_normal_loss: true  # true
+normal_weight: 0.05  # 0.05
+use_depth_normal: true  # true
+
+# Enforce occupied centers
+enforce_occupied_centers: false  # true
+occupied_centers_weight: 0.005  # 0.005
+occupancy_isosurface: 0.5  # 0.5
