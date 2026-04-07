@@ -9,7 +9,7 @@ import trimesh
 import copy
 from tqdm import tqdm
 import json as _json
-from scipy.spatial import Delaunay
+from scipy.spatial import ConvexHull
 from arguments import ModelParams, PipelineParams, get_combined_args
 # Scene imports
 from scene.cameras import Camera
@@ -174,7 +174,7 @@ def load_crop_box_and_transform(args):
 def load_blender_crop_volume(json_path: str):
     """
     Loads a convex-hull bounding volume exported from the GW Blender add-on.
-    Returns a scipy.spatial.Delaunay object (used for inside-hull tests) and an identity transform.
+    Returns a scipy.spatial.ConvexHull (half-space representation) and an identity transform.
     """
 
     print(f"[INFO] Loading Blender bounding volume from {json_path}")
@@ -188,8 +188,19 @@ def load_blender_crop_volume(json_path: str):
         )
 
     vertices = np.array(data["vertices"], dtype=np.float64)
-    hull = Delaunay(vertices)
+    hull = ConvexHull(vertices)
     return hull, np.identity(4)  # Blender world == model world
+
+def _in_convex_hull(hull: ConvexHull, points: np.ndarray, tol: float = 0.0) -> np.ndarray:
+    """Returns a boolean mask: True where points are inside (or within tol of) the convex hull.
+
+    Uses the half-space representation (hull.equations): each row is [normal, offset] such that
+    normal @ x + offset <= 0 for interior points. This is more numerically stable than
+    Delaunay.find_simplex, which returns -1 for points exactly on facet boundaries.
+    """
+    # shape: (n_points, n_facets)  — positive means outside that facet
+    signed_dist = points @ hull.equations[:, :-1].T + hull.equations[:, -1]
+    return signed_dist.max(axis=1) <= tol
 
 '''
 Auxiliary Mesh Functions
@@ -373,12 +384,12 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         mesh_cropped = crop_volume.crop_triangle_mesh(mesh_transformed)
 
     else:
-        if not isinstance(crop_volume, Delaunay):
+        if not isinstance(crop_volume, ConvexHull):
             raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
-                            "Expected AxisAlignedBoundingBox, SelectionPolygonVolume, or Delaunay.")
+                            "Expected AxisAlignedBoundingBox, SelectionPolygonVolume, or ConvexHull.")
 
         verts_np = np.asarray(mesh_transformed.vertices, dtype=np.float64)
-        inside_mask = crop_volume.find_simplex(verts_np) >= 0
+        inside_mask = _in_convex_hull(crop_volume, verts_np)
 
         faces_np = np.asarray(mesh_transformed.triangles)
         # Keep faces where ALL three vertices are inside the hull
@@ -439,8 +450,8 @@ def get_candidate_points(args: ArgumentParser, global_occupancy_func: Callable, 
                 sampled_points, _, face_probs = sample_points_from_mesh_robust(mesh, n_sample, transform, crop_volume, args, scene_pckg["cameras"], face_probs=face_probs)
         points = np.concatenate(all_points, axis=0)[:args.max_points]
 
-    if isinstance(crop_volume, Delaunay):
-        points = points[crop_volume.find_simplex(points.astype(np.float64)) >= 0]
+    if isinstance(crop_volume, ConvexHull):
+        points = points[_in_convex_hull(crop_volume, points.astype(np.float64), tol=1e-6)]
 
     return points
 
