@@ -757,7 +757,6 @@ if __name__ == "__main__":
     # ----- Densification and Simplification -----
     # > Inspired by Mini-Splatting2.
     # > Used for pruning, densification and Gaussian pivots selection.
-    parser.add_argument("--imp_metric", required=True, type=str, choices=["outdoor", "indoor"])
     parser.add_argument("--N_max_gaussians", type=int, default=None,
         help="Cap Gaussian count during Normal Field Densification. If the next densification would exceed this, only the highest-error Gaussians are added up to the cap. None = no limit.")
     parser.add_argument("--warn_until_iter", type=int, default=3000)
@@ -860,9 +859,6 @@ if __name__ == "__main__":
         print(f"[INFO] Using normal field with config: {args.normal_field_config}")
     else:
         normal_field_config = None
-    
-    # Message for imp_metric
-    print(f"[INFO] Using importance metric: {args.imp_metric}.")
     
     # Message for detach_gaussian_rendering
     if args.detach_gaussian_rendering:

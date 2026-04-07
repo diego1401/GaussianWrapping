@@ -6,14 +6,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(BASE_DIR)
 
 
-scenes_dict = {
-    "Barn":        {"imp_metric": "outdoor"},
-    "Caterpillar": {"imp_metric": "outdoor"},
-    "Courthouse":  {"imp_metric": "outdoor"},
-    "Ignatius":    {"imp_metric": "outdoor"},
-    "Meetingroom": {"imp_metric": "indoor"},
-    "Truck":       {"imp_metric": "outdoor"},
-}
+scenes = [
+    "Barn",
+    "Caterpillar",
+    "Courthouse",
+    "Ignatius",
+    "Meetingroom",
+    "Truck",
+]
 
 
 if __name__ == "__main__":
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     data_device = "cuda" if args.data_on_gpu else "cpu"
 
-    for scene_name, scene_params in scenes_dict.items():
+    for scene_name in scenes:
         print(f"\n[INFO] ===== {scene_name} =====")
 
         scene_data_dir = os.path.join(args.data_dir, scene_name)
@@ -54,7 +54,6 @@ if __name__ == "__main__":
             "python gaussian_wrapping/scripts/train_and_extract_gw_radegs.py",
             f"-s {scene_data_dir}",
             f"-m {scene_output_dir}",
-            f"--imp_metric {scene_params['imp_metric']}",
             f"--data_device {data_device}",
             "-r 2",
             "--depth_order" if args.depth_order else "",

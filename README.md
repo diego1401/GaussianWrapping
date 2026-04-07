@@ -67,14 +67,12 @@ We provide two end-to-end scripts that run training followed by mesh extraction:
 python gaussian_wrapping/scripts/train_and_extract_gw_ours.py \
     -s <PATH_TO_COLMAP_DATASET> \
     -m <OUTPUT_DIR> \
-    --imp_metric <outdoor|indoor> \
     -r 2
 
 # RaDeGS rasterizer (smoother-looking meshes)
 python gaussian_wrapping/scripts/train_and_extract_gw_radegs.py \
     -s <PATH_TO_COLMAP_DATASET> \
     -m <OUTPUT_DIR> \
-    --imp_metric <outdoor|indoor> \
     -r 2
 ```
 
@@ -84,7 +82,6 @@ Each script runs three steps in sequence: training, mesh extraction, and texture
 
 | Flag | Description |
 |------|-------------|
-| `--imp_metric` | Scene type: `outdoor` or `indoor` |
 | `-r 2` | Downsample input images by 2× (used for metrics and comparisons) |
 
 # Primal Adaptive Meshing

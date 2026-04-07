@@ -6,17 +6,17 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(BASE_DIR)
 
 
-scenes_dict = {
-    "bicycle":  {"imp_metric": "outdoor"},
-    "bonsai":   {"imp_metric": "indoor"},
-    "counter":  {"imp_metric": "indoor"},
-    "garden":   {"imp_metric": "outdoor"},
-    "kitchen":  {"imp_metric": "indoor"},
-    "room":     {"imp_metric": "indoor"},
-    "stump":    {"imp_metric": "outdoor"},
-    "flowers":  {"imp_metric": "outdoor"},
-    "treehill": {"imp_metric": "outdoor"},
-}
+scenes = [
+    "bicycle",
+    "bonsai",
+    "counter",
+    "garden",
+    "kitchen",
+    "room",
+    "stump",
+    "flowers",
+    "treehill",
+]
 
 
 if __name__ == "__main__":
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     data_device = "cuda" if args.data_on_gpu else "cpu"
 
-    for scene_name, scene_params in scenes_dict.items():
+    for scene_name in scenes:
         print(f"\n[INFO] ===== {scene_name} =====")
 
         scene_data_dir = os.path.join(args.data_dir, scene_name)
@@ -55,7 +55,6 @@ if __name__ == "__main__":
             "python gaussian_wrapping/scripts/train_and_extract_gw_ours.py",
             f"-s {scene_data_dir}",
             f"-m {scene_output_dir}",
-            f"--imp_metric {scene_params['imp_metric']}",
             f"--data_device {data_device}",
             "--no-exposure_compensation",
             "--N_max_gaussians 6000000",
