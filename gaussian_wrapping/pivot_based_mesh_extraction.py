@@ -403,20 +403,13 @@ def marching_tetrahedra_with_binary_search(
     torch.cuda.empty_cache()
     
     # Binary search
-    if args.n_binary_steps > 0:
-        
-        sdf_function_to_use_for_binary_search = (
-            # partial(batchified_sdf_function, accelerate=True, exact_alpha_eval=False) if args.sdf_mode == "sof" 
-            partial(batchified_sdf_function, accelerate=False, exact_alpha_eval=True) if args.sdf_mode == "sof" 
-            else batchified_sdf_function
-        )
-        
+    if args.n_binary_steps > 0:        
         end_points = details['end_points']
         end_sdf = details['end_sdf']
         verts = refine_intersections_with_binary_search(
             end_points=end_points,
             end_sdf=end_sdf,
-            sdf_function=sdf_function_to_use_for_binary_search,
+            sdf_function=batchified_sdf_function,
             n_binary_steps=args.n_binary_steps,
         )
         mesh.verts = verts
