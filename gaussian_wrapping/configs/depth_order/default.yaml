@@ -2,8 +2,7 @@ depthanythingv2_checkpoint_dir: '../submodules/Depth-Anything-V2/checkpoints/'
 depthanythingv2_encoder: 'vitl'
 
 weight_initial_value: 0.0
-# weight_initial_value: 1.
-weight_update_iters:  [600, 1500, 3000,  8000,  13000]
+weight_update_iters:  [3000, 7000, 15000, 20000, 25000]
 weight_update_values: [  1,  0.1, 0.01, 0.001, 0.0001]
 
 depth_ratio: 0.6
@@ -13,3 +12,5 @@ normalize_loss: true
 log_space: true
 log_scale: 20.0
 reduction: 'mean'
+
+deactivate_depth_order_after: 15000  # -1 for no deactivation

@@ -1,10 +1,7 @@
 import torch
 import gc
 from tqdm import tqdm
-# from utils.graphics_utils import depth_double_to_normal
 from regularization.depth.depth_order import compute_depth_order_loss
-# from scene import Scene, GaussianModel
-# from scene.cameras import Camera
 
 
 def initialize_depth_order_supervision(
@@ -39,6 +36,7 @@ def initialize_depth_order_supervision(
     )
     dav2.eval()
     depth_priors = []
+    data_device = viewpoint_stack[0].original_image.device
     with torch.no_grad():
         for i_image in tqdm(range(len(viewpoint_stack)), desc="Building depth priors"):
             gt_image = viewpoint_stack[i_image].original_image.permute(1, 2, 0) # H, W, C
@@ -48,7 +46,9 @@ def initialize_depth_order_supervision(
                 / (supervision_disparity.max() - supervision_disparity.min())
             )
             supervision_depth = 1. / (0.1 + 0.9 * supervision_disparity)
-            depth_priors.append(supervision_depth.squeeze().unsqueeze(0).to('cpu'))  # (1, H, W)
+            depth_priors.append(
+                supervision_depth.squeeze().unsqueeze(0).to(data_device)
+            )  # (1, H, W)
 
     del dav2
     gc.collect()
@@ -124,21 +124,3 @@ def compute_depth_order_regularization(
     )
 
     return depth_prior_loss, rendered_depth, supervision_depth, lambda_depth_order
-
-
-# def get_depth_order_normals_for_logging(viewpoint_cam, supervision_depth):
-#     """Computes normals from supervision depth for logging purposes."""
-#     if supervision_depth.sum() == 0: # Handle case where lambda_depth_order is 0
-#          return torch.zeros((3, viewpoint_cam.image_height, viewpoint_cam.image_width), device=supervision_depth.device)
-#     # Ensure supervision_depth is on the correct device and has channel dim
-#     supervision_depth_dev = supervision_depth.to(viewpoint_cam.R.device)
-#     if supervision_depth_dev.dim() == 2:
-#         supervision_depth_dev = supervision_depth_dev.unsqueeze(0)
-
-#     # depth_double_to_normal expects (1, H, W)
-#     supervision_normal = depth_double_to_normal(
-#         viewpoint_cam,
-#         supervision_depth_dev,
-#         supervision_depth_dev # Use same depth for expected and median
-#     )[0] # Get the first normal map (expected == median)
-#     return supervision_normal
