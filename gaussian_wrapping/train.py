@@ -17,7 +17,6 @@ from fused_ssim import fused_ssim
 
 from gaussian_renderer import network_gui
 from gaussian_renderer import render_imp
-import sys
 from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
 import uuid

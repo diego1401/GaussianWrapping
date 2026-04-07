@@ -8,6 +8,8 @@ import open3d as o3d
 import trimesh
 import copy
 from tqdm import tqdm
+import json as _json
+from scipy.spatial import ConvexHull
 from arguments import ModelParams, PipelineParams, get_combined_args
 # Scene imports
 from scene.cameras import Camera
@@ -159,15 +161,46 @@ def load_crop_box_and_transform(args):
     scene_name = os.path.basename(os.path.normpath(args.source_path))
     traj_path = os.path.join(args.source_path, scene_name + "_COLMAP_SfM.log")
     _, trajectory_transform = load_gt_pcd_and_transform(args.source_path, scene_name, traj_path)
-    
+
     crop_json_path = os.path.join(args.source_path, scene_name + ".json")
     if not os.path.exists(crop_json_path):
         raise FileNotFoundError(f"Crop file not found: {crop_json_path}")
-        
+
     print(f"[INFO] Loading crop volume from {crop_json_path}")
     vol = o3d.visualization.read_selection_polygon_volume(crop_json_path)
-    
+
     return vol, trajectory_transform
+
+def load_blender_crop_volume(json_path: str):
+    """
+    Loads a convex-hull bounding volume exported from the GW Blender add-on.
+    Returns a scipy.spatial.ConvexHull (half-space representation) and an identity transform.
+    """
+
+    print(f"[INFO] Loading Blender bounding volume from {json_path}")
+    with open(json_path, "r") as f:
+        data = _json.load(f)
+
+    if data.get("class_name") != "GaussianWrappingBoundingVolume":
+        raise ValueError(
+            f"Expected class_name 'GaussianWrappingBoundingVolume', got '{data.get('class_name')}'. "
+            "Make sure the JSON was exported with the GW Bounding Volume Blender add-on."
+        )
+
+    vertices = np.array(data["vertices"], dtype=np.float64)
+    hull = ConvexHull(vertices)
+    return hull, np.identity(4)  # Blender world == model world
+
+def _in_convex_hull(hull: ConvexHull, points: np.ndarray, tol: float = 0.0) -> np.ndarray:
+    """Returns a boolean mask: True where points are inside (or within tol of) the convex hull.
+
+    Uses the half-space representation (hull.equations): each row is [normal, offset] such that
+    normal @ x + offset <= 0 for interior points. This is more numerically stable than
+    Delaunay.find_simplex, which returns -1 for points exactly on facet boundaries.
+    """
+    # shape: (n_points, n_facets)  — positive means outside that facet
+    signed_dist = points @ hull.equations[:, :-1].T + hull.equations[:, -1]
+    return signed_dist.max(axis=1) <= tol
 
 '''
 Auxiliary Mesh Functions
@@ -176,12 +209,12 @@ Auxiliary Mesh Functions
 def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, global_occupancy_func: Callable):
     # Initialize MeshFromDelaunay
     print("[INFO] Initializing Delaunay Triangulation...")
-    mponq = MeshFromDelaunay(points, add_corners=False)
+    meshfromdelaunay = MeshFromDelaunay(points, add_corners=False)
     
     if args.p_per_tet == 1:
-        query_points = mponq.barycenters
+        query_points = meshfromdelaunay.barycenters
     else:
-        query_points = mponq.sample_random_tet_points(args.p_per_tet)
+        query_points = meshfromdelaunay.sample_random_tet_points(args.p_per_tet)
         query_points = query_points.reshape(-1, 3)
     
     torch_query_points = torch.tensor(query_points, dtype=torch.float32).to('cuda')
@@ -198,11 +231,11 @@ def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, glo
     # occupancy > 0.5 means inside/occupied
     occupancy_np = occupancy.cpu().detach().numpy()
     vacancy = 1.0 - occupancy_np
-    mponq.tet_colors = (vacancy > 0.5)
+    meshfromdelaunay.tet_colors = (vacancy < 0.5)
 
     # Extract surface
     print("[INFO] Extracting surface...")
-    surface_data = mponq.get_surface()
+    surface_data = meshfromdelaunay.get_surface()
     surface_verts = surface_data[0]
     surface_faces = surface_data[1]
     
@@ -317,12 +350,18 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         scene_radius_scaled = scene_pckg["scene_radius"] * args.bounding_box_scaling
         min_bound = np.array([-scene_radius_scaled, -scene_radius_scaled, -scene_radius_scaled])
         max_bound = np.array([scene_radius_scaled, scene_radius_scaled, scene_radius_scaled])
-        
+
         # Create an AxisAlignedBoundingBox
         crop_volume = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-        
+
         # Create an identity transform (4x4 matrix)
         transform = np.identity(4)
+
+    elif args.bounding_box_method == "blender":
+        assert args.bounding_box_file is not None, \
+            "--bounding_box_file is required when --bounding_box_method=blender"
+        crop_volume, transform = load_blender_crop_volume(args.bounding_box_file)
+
     else:
         raise ValueError(f"Bounding Box Method: [{args.bounding_box_method}] does not exist")
     
@@ -345,9 +384,20 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         mesh_cropped = crop_volume.crop_triangle_mesh(mesh_transformed)
 
     else:
-        # Fallback/Error for unsupported types
-        raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
-                        "Expected AxisAlignedBoundingBox or SelectionPolygonVolume.")
+        if not isinstance(crop_volume, ConvexHull):
+            raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
+                            "Expected AxisAlignedBoundingBox, SelectionPolygonVolume, or ConvexHull.")
+
+        verts_np = np.asarray(mesh_transformed.vertices, dtype=np.float64)
+        inside_mask = _in_convex_hull(crop_volume, verts_np)
+
+        faces_np = np.asarray(mesh_transformed.triangles)
+        # Keep faces where ALL three vertices are inside the hull
+        face_mask = inside_mask[faces_np].all(axis=1)
+
+        mesh_cropped = copy.deepcopy(mesh_transformed)
+        mesh_cropped.remove_triangles_by_mask(~face_mask)
+        mesh_cropped.remove_unreferenced_vertices()
     
     if len(mesh_cropped.vertices) == 0:
         print("[WARNING] Cropped mesh is empty!")
@@ -400,6 +450,9 @@ def get_candidate_points(args: ArgumentParser, global_occupancy_func: Callable, 
                 sampled_points, _, face_probs = sample_points_from_mesh_robust(mesh, n_sample, transform, crop_volume, args, scene_pckg["cameras"], face_probs=face_probs)
         points = np.concatenate(all_points, axis=0)[:args.max_points]
 
+    if isinstance(crop_volume, ConvexHull):
+        points = points[_in_convex_hull(crop_volume, points.astype(np.float64), tol=1e-6)]
+
     return points
 
 '''
@@ -449,8 +502,10 @@ if __name__ == "__main__":
     parser.add_argument("--vacancy_threshold", default=0.1, type=float, help="Vacancy threshold for filtering")
     parser.add_argument("--save_candidate_points", action="store_true", help="Save candidate points to ply file")
     parser.add_argument("--post_process", action="store_true", help="Post process mesh")
-    parser.add_argument("--bounding_box_method", default="scene", type=str, choices=["ground_truth","scene"])
-    parser.add_argument("--bounding_box_scaling",default=1.0, type=float)
+    parser.add_argument("--bounding_box_method", default="scene", type=str, choices=["ground_truth", "scene", "blender"])
+    parser.add_argument("--bounding_box_scaling", default=1.0, type=float)
+    parser.add_argument("--bounding_box_file", default=None, type=str,
+                        help="Path to bounding volume JSON exported from the GW Blender add-on (required for --bounding_box_method=blender)")
     parser.add_argument("--n_neighbors_vector_field", type=int, default=32, help="Number of neighbors for grad occupancy computation")
     parser.add_argument("--mesh_sampling_method", default="proportional_to_camera", type=str, choices=["surface_even", "proportional_to_camera"])
     parser.add_argument("--plot_vacancy_histogram", action="store_true", help="Plot histogram of vacancy values")
