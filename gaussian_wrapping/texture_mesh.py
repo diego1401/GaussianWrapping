@@ -7,7 +7,6 @@ import random
 from argparse import ArgumentParser, BooleanOptionalAction
 from arguments import ModelParams, PipelineParams, get_combined_args
 from gaussian_renderer import GaussianModel
-import numpy as np
 import trimesh
 from scene.mesh import Meshes, MeshRenderer, ScalableMeshRenderer, MeshRasterizer
 from regularization.sdf.depth_fusion import frustum_cull_mesh

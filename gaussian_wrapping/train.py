@@ -17,7 +17,6 @@ from fused_ssim import fused_ssim
 
 from gaussian_renderer import network_gui
 from gaussian_renderer import render_imp
-import sys
 from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
 import uuid
@@ -186,6 +185,8 @@ def training(
     if args.depth_order:
         print("[INFO] Using depth order regularization.")
         print(f"        > Using expected depth with depth_ratio {depth_order_config['depth_ratio']} for depth order regularization.")
+        if depth_order_config["deactivate_depth_order_after"] > -1:
+            print(f"        > Deactivating at iteration {depth_order_config['deactivate_depth_order_after']}.")
         depth_priors = initialize_depth_order_supervision(
             scene=scene,
             config=depth_order_config,
@@ -256,6 +257,10 @@ def training(
         reg_kick_on = iteration >= args.regularization_from_iter
         normal_field_kick_on = args.use_normal_field and (iteration >= normal_field_config["start_iter"])
         depth_order_kick_on = args.depth_order
+        if args.depth_order and depth_order_config["deactivate_depth_order_after"] > -1:
+            if iteration == depth_order_config["deactivate_depth_order_after"]:
+                print(f"[INFO] Deactivating depth order regularization at iteration {iteration}.")
+            depth_order_kick_on = depth_order_kick_on and (iteration < depth_order_config["deactivate_depth_order_after"])
         multiview_kick_on = args.multiview and (iteration >= multiview_config["start_multiview"])
         milo_kick_on = args.milo and (iteration >= milo_config["start_iter"])
         
@@ -736,7 +741,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[19_998])
+    parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
     
     # ----- Rasterization technique -----
@@ -910,7 +915,7 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     time_end=time.time()
     time_total=time_end-time_start
-    print('time: %fs'%(time_total))
+    print('Training time: %fs'%(time_total))
 
     time_txt_path=os.path.join(args.model_path, r'time.txt')
     with open(time_txt_path, 'w') as f:  

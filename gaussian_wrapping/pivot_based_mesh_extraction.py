@@ -176,15 +176,6 @@ def marching_tetrahedra_with_binary_search(
     frustum_far = 1e6 * scene_radius / standard_scale
     if apply_frustum_culling:
         print(f"[INFO] Using frustum culling with znear={frustum_near} and zfar={frustum_far}")
-    
-    # Define safety checks
-    check_nan = True
-    check_inf = True
-    
-    # Define cache management
-    # FIXME: Is it necessary to empty cache at each batch?
-    empty_cache_at_each_batch = False
-    empty_cache_at_each_view = True
 
     if args.sdf_mode == "exact_computation":        
         transmittance_threshold = 0.5 + args.isosurface_value

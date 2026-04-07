@@ -52,8 +52,10 @@ export PATH=/usr/local/cuda-11.8/bin:$PATH
 python install.py --cuda_version 11.8   # or 12.1
 ```
 
+`install.py` installs PyTorch 2.3.1, the CUDA-compiled rasterizers, nvdiffrast,
+and tetra_triangulation (requires cmake + gmp + cgal, installed automatically via conda).
 
-## Training & Mesh Extraction
+# Training & Mesh Extraction
 
 Gaussian Wrapping expects a **COLMAP-formatted dataset** (images + sparse reconstruction).
 Use `-s` for the dataset root and `-m` for the output directory.
@@ -85,7 +87,7 @@ Each script runs three steps in sequence: training, mesh extraction, and texture
 | `--imp_metric` | Scene type: `outdoor` or `indoor` |
 | `-r 2` | Downsample input images by 2× (used for metrics and comparisons) |
 
-## Primal Adaptive Meshing
+# Primal Adaptive Meshing
 
 An alternative mesh extraction method that samples candidate points from an existing mesh (e.g. extracted by the standard pipeline), refines them onto the Gaussian occupancy isosurface via gradient descent, and reconstructs the surface with a Delaunay-based approach.
 
@@ -161,7 +163,59 @@ python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
 
 </details>
 
----
+## Blender Bounding Volume Add-on
+
+If you want to extract an object of your scene at abritary resolution easily we propose this blender-add on to easily define the section of the scene to extract.
+
+
+#### Installation
+<details>
+1. Open Blender.
+2. Go to **Edit → Preferences → Add-ons → Install…**
+3. Select `gaussian_wrapping/blender/bounding_volume_addon.py`.
+4. Enable the **GW Bounding Volume Exporter** add-on in the list.
+
+The add-on is now accessible as the **GW Bounds** tab in the 3D Viewport's N-panel (press **N** to open it).
+</details>
+
+#### Usage
+
+1. **Import your input mesh** into Blender as a visual reference (e.g. *File → Import → Stanford PLY* and select the mesh you plan to pass to `--input_mesh`). This aligns Blender's coordinate frame with the Gaussian model.
+
+   ![Step 1](assets/step_1.png)
+
+2. **Create a bounding mesh** — add any mesh (e.g. a Cube via *Shift+A → Mesh → Cube*) and transform (e.g edit mode → move vertices of cube) it so it encloses exactly the region of interest.
+
+   ![Step 2](assets/step_2.png)
+3. Open the **GW Bounds** tab in the N-panel:
+   - Set **Bounding Mesh** to the object you just created.
+   - Set **Export Path** to the `.json` file you want to write.
+   - Click **Export Bounding Volume**.
+4. Run the extraction script with:
+
+```bash
+python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
+    -s <PATH_TO_COLMAP_DATASET> \
+    -m <OUTPUT_DIR> \
+    --input_mesh <PATH_TO_INPUT_MESH> \
+    --output_mesh <PATH_TO_OUTPUT_MESH.ply> \
+    --bounding_box_method blender \
+    --bounding_box_file <PATH_TO_EXPORTED.json>
+```
+
+   ![Step 3](assets/step_3.png)
+
+5. **Decimate the output mesh** — the extracted mesh tends to be very dense. We recommend decimating it to reduce its size with no perceptible quality loss. This can be done via the script:
+
+```bash
+blender --background --python gaussian_wrapping/mesh_decimate.py -- \
+    --in <PATH_TO_OUTPUT_MESH.ply> \
+    --out <PATH_TO_DECIMATED_MESH.ply> \
+    --ratio 0.3
+```
+
+   Alternatively, you can decimate directly in Blender: import the mesh (*File → Import → Stanford PLY*), select it, go to the **Properties** panel → **Modifier** tab, add a **Decimate** modifier, set the **Ratio** (e.g. `0.3`), and click **Apply**. Then export via *File → Export → Stanford PLY*.
+
 
 ## Benchmarks
 
@@ -276,7 +330,10 @@ Per-scene results are written to `<OUTPUT_DIR>/<scene>/`. Rendered images and me
 
 ### Mesh-Based Novel View Synthesis
 
+<details>
 We evaluate mesh-based novel view synthesis on the MipNeRF360 and Tanks and Temples datasets. Use the training and mesh extraction scripts described above to produce meshes for these datasets, then refer to [MILo](https://github.com/Anttwo/MILo.git) for the evaluation pipeline.
+
+</details>
 
 ## Citation
 

@@ -154,20 +154,6 @@ def compute_initial_sdf_values(
 
     if method == 'integration':                        
         raise NotImplementedError("Integration method not implemented yet.")
-        # sdf_function = partial(
-        #     evaluate_cull_sdf_values,
-        #     views=scene.getTrainCameras().copy(), 
-        #     masks=None, 
-        #     gaussians=gaussians, 
-        #     pipeline=pipe, 
-        #     background=background, 
-        #     kernel_size=kernel_size, 
-        #     return_colors=False, 
-        #     isosurface_value=config["sdf_default_isosurface"], 
-        #     transform_sdf_to_linear_space=config["transform_sdf_to_linear_space"], 
-        #     min_occupancy_value=config["min_occupancy_value"],
-        #     integrate_func=integrate_func,
-        # )
         
     pivots_sdf = sdf_function(pivots)
     # pivots_sdf = pivots_sdf / pivots_sdf.abs().max()
