@@ -23,7 +23,7 @@
 
 <br>
 
-[Project Page](https://diego1401.github.io/BlobsToSpokesWebsite/) | [arXiv](#) <!-- placeholder -->
+[Project Page](https://diego1401.github.io/BlobsToSpokesWebsite/) | [arXiv](#) <!-- placeholder --> | [Download Meshes](https://drive.google.com/drive/folders/1Qc9qMzzPdXAUgggbSwVUMyXc_2A1DrYj?usp=sharing)
 
 <br>
 
@@ -38,7 +38,7 @@
 
 
 
-# Installation
+## Installation
 
 ```bash
 conda create -n gaussian_wrapping python=3.10 -y
@@ -52,6 +52,8 @@ export PATH=/usr/local/cuda-11.8/bin:$PATH
 python install.py --cuda_version 11.8   # or 12.1
 ```
 
+`install.py` installs PyTorch 2.3.1, the CUDA-compiled rasterizers, nvdiffrast,
+and tetra_triangulation (requires cmake + gmp + cgal, installed automatically via conda).
 
 # Training & Mesh Extraction
 
@@ -106,6 +108,44 @@ python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
 | `--bounding_box_method` | `scene` | `scene` uses the camera extent; `ground_truth` uses the TNT ground truth volume (if available); `blender` uses a custom volume exported from the Blender add-on (see below) |
 | `--bounding_box_scaling` | `1.0` | Scale factor applied to the scene bounding box |
 | `--bounding_box_file` | — | Path to the `.json` bounding volume exported from Blender (required when `--bounding_box_method blender`) |
+
+### Blender Bounding Volume Add-on
+
+When the default scene bounding box is too large (or the wrong shape) for your scene, you can define a precise bounding volume interactively in Blender and pass it to the extraction script.
+
+<!-- VIDEO PLACEHOLDER: replace the line below with your demo video embed or GIF -->
+> **[Video demo placeholder]** *(add a GIF or video link here)*
+
+#### Installation
+
+1. Open Blender (3.0 or newer).
+2. Go to **Edit → Preferences → Add-ons → Install…**
+3. Select `gaussian_wrapping/blender/bounding_volume_addon.py`.
+4. Enable the **GW Bounding Volume Exporter** add-on in the list.
+
+The add-on is now accessible as the **GW Bounds** tab in the 3D Viewport's N-panel (press **N** to open it).
+
+#### Usage
+
+1. **Import your input mesh** into Blender as a visual reference (e.g. *File → Import → Stanford PLY* and select the mesh you plan to pass to `--input_mesh`). This aligns Blender's coordinate frame with the Gaussian model.
+2. **Create a bounding mesh** — add any mesh (e.g. a Cube via *Shift+A → Mesh → Cube*) and transform it so it encloses exactly the region of interest. You can use any shape; the add-on will compute its convex hull.
+3. Open the **GW Bounds** tab in the N-panel:
+   - Set **Bounding Mesh** to the object you just created.
+   - Set **Export Path** to the `.json` file you want to write.
+   - Click **Export Bounding Volume**.
+4. Run the extraction script with:
+
+```bash
+python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
+    -s <PATH_TO_COLMAP_DATASET> \
+    -m <OUTPUT_DIR> \
+    --input_mesh <PATH_TO_INPUT_MESH> \
+    --output_mesh <PATH_TO_OUTPUT_MESH.ply> \
+    --bounding_box_method blender \
+    --bounding_box_file <PATH_TO_EXPORTED.json>
+```
+
+> **Coordinate system note:** The add-on exports vertices in Blender world space. As long as you import the input mesh into Blender first (step 1), the coordinates will be automatically aligned with the Gaussian model — no manual transform needed.
 
 <details>
 <summary><strong>Advanced options</strong></summary>
@@ -181,6 +221,9 @@ blender --background --python gaussian_wrapping/mesh_decimate.py -- \
 
 ### Tanks and Temples
 <details>
+
+> **Note on `_post_` meshes:** The meshes that are evaluated with the following metrics are passed through a post-processing procedure similar to [GGGS](https://github.com/HKUST-SAIL/Geometry-Grounded-Gaussian-Splatting) and [PGSR](https://zju3dv.github.io/pgsr/). This procedure yields in practice better metrics. However, we find that it can sometimes remove objects on the scene (e.g chandelier in the Meeting Room scene). Thus, for the textured meshes we recommend using non post-processed meshes.
+
 To reproduce our full Tanks and Temples results, run the end-to-end benchmark scripts from the project root. Each script trains all 6 scenes, extracts meshes, and runs all three evaluations (uniform sampling, virtual scan sampling, and legacy TNT).
 
 ```bash

@@ -8,7 +8,7 @@ TRAIN_SCRIPT = os.path.join(BASE_DIR, "train.py")
 EXTRACT_SCRIPT = os.path.join(BASE_DIR, "pivot_based_mesh_extraction.py")
 TEXTURE_SCRIPT = os.path.join(BASE_DIR, "texture_mesh.py")
 
-MESH_NAME = "mesh_exact_computation_2pivots_searched_post.ply"
+MESH_NAME = "mesh_exact_computation_2pivots_searched.ply"
 
 TRAIN_FLAGS = [
     "--rasterizer", "radegs",
