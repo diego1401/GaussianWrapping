@@ -14,6 +14,8 @@ scenes_dict = {
     "kitchen":  {"imp_metric": "indoor"},
     "room":     {"imp_metric": "indoor"},
     "stump":    {"imp_metric": "outdoor"},
+    "flowers":  {"imp_metric": "outdoor"},
+    "treehill": {"imp_metric": "outdoor"},
 }
 
 
@@ -56,6 +58,7 @@ if __name__ == "__main__":
             f"--imp_metric {scene_params['imp_metric']}",
             f"--data_device {data_device}",
             "--no-exposure_compensation",
+            "--N_max_gaussians 6000000",
             "--depth_order" if args.depth_order else "",
             f"--depth_order_config {args.depth_order_config}" if args.depth_order and args.depth_order_config else "",
         ]))
