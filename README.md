@@ -167,6 +167,9 @@ python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
 
 ### Tanks and Temples
 <details>
+
+> **Note on `_post_` meshes:** The meshes that are evaluated with the following metrics are passed through a post-processing procedure similar to [GGGS](https://github.com/HKUST-SAIL/Geometry-Grounded-Gaussian-Splatting) and [PGSR](https://zju3dv.github.io/pgsr/). This procedure yields in practice better metrics. However, we find that it can sometimes remove objects on the scene (e.g chandelier in the Meeting Room scene). Thus, for the textured meshes we recommend using non post-processed meshes.
+
 To reproduce our full Tanks and Temples results, run the end-to-end benchmark scripts from the project root. Each script trains all 6 scenes, extracts meshes, and runs all three evaluations (uniform sampling, virtual scan sampling, and legacy TNT).
 
 ```bash
