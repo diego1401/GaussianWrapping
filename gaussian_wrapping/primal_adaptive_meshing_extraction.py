@@ -8,6 +8,8 @@ import open3d as o3d
 import trimesh
 import copy
 from tqdm import tqdm
+import json as _json
+from scipy.spatial import Delaunay
 from arguments import ModelParams, PipelineParams, get_combined_args
 # Scene imports
 from scene.cameras import Camera
@@ -174,8 +176,6 @@ def load_blender_crop_volume(json_path: str):
     Loads a convex-hull bounding volume exported from the GW Blender add-on.
     Returns a scipy.spatial.Delaunay object (used for inside-hull tests) and an identity transform.
     """
-    import json as _json
-    from scipy.spatial import Delaunay
 
     print(f"[INFO] Loading Blender bounding volume from {json_path}")
     with open(json_path, "r") as f:
@@ -373,8 +373,6 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         mesh_cropped = crop_volume.crop_triangle_mesh(mesh_transformed)
 
     else:
-        # Blender convex-hull volume: scipy.spatial.Delaunay inside test
-        from scipy.spatial import Delaunay
         if not isinstance(crop_volume, Delaunay):
             raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
                             "Expected AxisAlignedBoundingBox, SelectionPolygonVolume, or Delaunay.")
@@ -440,6 +438,9 @@ def get_candidate_points(args: ArgumentParser, global_occupancy_func: Callable, 
                 n_sample = points_to_extract * args.oversampling_factor
                 sampled_points, _, face_probs = sample_points_from_mesh_robust(mesh, n_sample, transform, crop_volume, args, scene_pckg["cameras"], face_probs=face_probs)
         points = np.concatenate(all_points, axis=0)[:args.max_points]
+
+    if isinstance(crop_volume, Delaunay):
+        points = points[crop_volume.find_simplex(points.astype(np.float64)) >= 0]
 
     return points
 
