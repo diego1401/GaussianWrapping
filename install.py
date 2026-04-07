@@ -69,5 +69,11 @@ if __name__ == '__main__':
     os.system(f"pip install --no-build-isolation submodules/Geometry-Grounded-Gaussian-Splatting/submodules/warp-patch-ncc")
     print("[INFO] Warp Patch NCC installed.")
 
+    print(f"[INFO] Installing Torch Geometric...")
+    os.system(f"pip install torch_geometric")
+    cuda_tag = args.cuda_version.replace(".", "")
+    os.system(f"pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cu{cuda_tag}.html")
+    print("[INFO] Torch Geometric installed.")
+
     print(f"[INFO] Installation complete.")
     
