@@ -29,9 +29,13 @@
 
 ![Teaser](assets/teaser.png)
 
+**Gaussian Wrapping** reconstructs watertight, textured surface meshes of full 3D scenes—including extremely thin structures such as bicycle spokes—at a fraction of the mesh size of concurrent works, by interpreting 3D Gaussians as stochastic oriented surface elements.
+
+
+![Zoom Bike](assets/zoom_bike.gif)
+
 </div>
 
-**Gaussian Wrapping** reconstructs watertight, textured surface meshes of full 3D scenes—including extremely thin structures such as bicycle spokes—at a fraction of the mesh size of concurrent works, by interpreting 3D Gaussians as stochastic oriented surface elements.
 
 
 ## Installation
