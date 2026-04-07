@@ -198,12 +198,12 @@ Auxiliary Mesh Functions
 def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, global_occupancy_func: Callable):
     # Initialize MeshFromDelaunay
     print("[INFO] Initializing Delaunay Triangulation...")
-    mponq = MeshFromDelaunay(points, add_corners=False)
+    meshfromdelaunay = MeshFromDelaunay(points, add_corners=False)
     
     if args.p_per_tet == 1:
-        query_points = mponq.barycenters
+        query_points = meshfromdelaunay.barycenters
     else:
-        query_points = mponq.sample_random_tet_points(args.p_per_tet)
+        query_points = meshfromdelaunay.sample_random_tet_points(args.p_per_tet)
         query_points = query_points.reshape(-1, 3)
     
     torch_query_points = torch.tensor(query_points, dtype=torch.float32).to('cuda')
@@ -220,11 +220,11 @@ def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, glo
     # occupancy > 0.5 means inside/occupied
     occupancy_np = occupancy.cpu().detach().numpy()
     vacancy = 1.0 - occupancy_np
-    mponq.tet_colors = (vacancy > 0.5)
+    meshfromdelaunay.tet_colors = (vacancy < 0.5)
 
     # Extract surface
     print("[INFO] Extracting surface...")
-    surface_data = mponq.get_surface()
+    surface_data = meshfromdelaunay.get_surface()
     surface_verts = surface_data[0]
     surface_faces = surface_data[1]
     
