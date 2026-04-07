@@ -159,15 +159,37 @@ def load_crop_box_and_transform(args):
     scene_name = os.path.basename(os.path.normpath(args.source_path))
     traj_path = os.path.join(args.source_path, scene_name + "_COLMAP_SfM.log")
     _, trajectory_transform = load_gt_pcd_and_transform(args.source_path, scene_name, traj_path)
-    
+
     crop_json_path = os.path.join(args.source_path, scene_name + ".json")
     if not os.path.exists(crop_json_path):
         raise FileNotFoundError(f"Crop file not found: {crop_json_path}")
-        
+
     print(f"[INFO] Loading crop volume from {crop_json_path}")
     vol = o3d.visualization.read_selection_polygon_volume(crop_json_path)
-    
+
     return vol, trajectory_transform
+
+def load_blender_crop_volume(json_path: str):
+    """
+    Loads a convex-hull bounding volume exported from the GW Blender add-on.
+    Returns a scipy.spatial.Delaunay object (used for inside-hull tests) and an identity transform.
+    """
+    import json as _json
+    from scipy.spatial import Delaunay
+
+    print(f"[INFO] Loading Blender bounding volume from {json_path}")
+    with open(json_path, "r") as f:
+        data = _json.load(f)
+
+    if data.get("class_name") != "GaussianWrappingBoundingVolume":
+        raise ValueError(
+            f"Expected class_name 'GaussianWrappingBoundingVolume', got '{data.get('class_name')}'. "
+            "Make sure the JSON was exported with the GW Bounding Volume Blender add-on."
+        )
+
+    vertices = np.array(data["vertices"], dtype=np.float64)
+    hull = Delaunay(vertices)
+    return hull, np.identity(4)  # Blender world == model world
 
 '''
 Auxiliary Mesh Functions
@@ -317,12 +339,18 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         scene_radius_scaled = scene_pckg["scene_radius"] * args.bounding_box_scaling
         min_bound = np.array([-scene_radius_scaled, -scene_radius_scaled, -scene_radius_scaled])
         max_bound = np.array([scene_radius_scaled, scene_radius_scaled, scene_radius_scaled])
-        
+
         # Create an AxisAlignedBoundingBox
         crop_volume = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-        
+
         # Create an identity transform (4x4 matrix)
         transform = np.identity(4)
+
+    elif args.bounding_box_method == "blender":
+        assert args.bounding_box_file is not None, \
+            "--bounding_box_file is required when --bounding_box_method=blender"
+        crop_volume, transform = load_blender_crop_volume(args.bounding_box_file)
+
     else:
         raise ValueError(f"Bounding Box Method: [{args.bounding_box_method}] does not exist")
     
@@ -345,9 +373,22 @@ def load_mesh(args: ArgumentParser, scene_pckg: Dict[str, Any]):
         mesh_cropped = crop_volume.crop_triangle_mesh(mesh_transformed)
 
     else:
-        # Fallback/Error for unsupported types
-        raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
-                        "Expected AxisAlignedBoundingBox or SelectionPolygonVolume.")
+        # Blender convex-hull volume: scipy.spatial.Delaunay inside test
+        from scipy.spatial import Delaunay
+        if not isinstance(crop_volume, Delaunay):
+            raise TypeError(f"Unsupported crop_volume type: {type(crop_volume)}. "
+                            "Expected AxisAlignedBoundingBox, SelectionPolygonVolume, or Delaunay.")
+
+        verts_np = np.asarray(mesh_transformed.vertices, dtype=np.float64)
+        inside_mask = crop_volume.find_simplex(verts_np) >= 0
+
+        faces_np = np.asarray(mesh_transformed.triangles)
+        # Keep faces where ALL three vertices are inside the hull
+        face_mask = inside_mask[faces_np].all(axis=1)
+
+        mesh_cropped = copy.deepcopy(mesh_transformed)
+        mesh_cropped.remove_triangles_by_mask(~face_mask)
+        mesh_cropped.remove_unreferenced_vertices()
     
     if len(mesh_cropped.vertices) == 0:
         print("[WARNING] Cropped mesh is empty!")
@@ -449,8 +490,10 @@ if __name__ == "__main__":
     parser.add_argument("--vacancy_threshold", default=0.1, type=float, help="Vacancy threshold for filtering")
     parser.add_argument("--save_candidate_points", action="store_true", help="Save candidate points to ply file")
     parser.add_argument("--post_process", action="store_true", help="Post process mesh")
-    parser.add_argument("--bounding_box_method", default="scene", type=str, choices=["ground_truth","scene"])
-    parser.add_argument("--bounding_box_scaling",default=1.0, type=float)
+    parser.add_argument("--bounding_box_method", default="scene", type=str, choices=["ground_truth", "scene", "blender"])
+    parser.add_argument("--bounding_box_scaling", default=1.0, type=float)
+    parser.add_argument("--bounding_box_file", default=None, type=str,
+                        help="Path to bounding volume JSON exported from the GW Blender add-on (required for --bounding_box_method=blender)")
     parser.add_argument("--n_neighbors_vector_field", type=int, default=32, help="Number of neighbors for grad occupancy computation")
     parser.add_argument("--mesh_sampling_method", default="proportional_to_camera", type=str, choices=["surface_even", "proportional_to_camera"])
     parser.add_argument("--plot_vacancy_histogram", action="store_true", help="Plot histogram of vacancy values")
