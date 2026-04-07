@@ -55,7 +55,6 @@ if __name__ == "__main__":
             f"-m {scene_output_dir}",
             f"--imp_metric {scene_params['imp_metric']}",
             f"--data_device {data_device}",
-            "-r 2",
             "--no-exposure_compensation",
             "--depth_order" if args.depth_order else "",
             f"--depth_order_config {args.depth_order_config}" if args.depth_order and args.depth_order_config else "",
@@ -74,7 +73,6 @@ if __name__ == "__main__":
             f"-m {scene_output_dir}",
             "--rasterizer radegs",
             f"--data_device {data_device}",
-            "-r 2",
         ])
 
         print("\n[INFO] Running render command:", render_command, sep="\n")
