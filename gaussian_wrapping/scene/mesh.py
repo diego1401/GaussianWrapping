@@ -1274,7 +1274,7 @@ class ScalableMeshRenderer(torch.nn.Module):
         use_antialiasing:bool=True,
         return_pix_to_face:bool=False,
         check_errors:bool=True,
-        max_triangles_in_batch:int=2**24  # Corresponds to the nb of triangles above which Nvdiffrast breaks
+        max_triangles_in_batch:int=2**22  # Reduced from 2**24 to avoid subtriangle overflow
     ):
         n_passes = (mesh.faces.shape[0] + max_triangles_in_batch - 1) // max_triangles_in_batch
         
