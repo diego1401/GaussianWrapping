@@ -42,6 +42,7 @@
 
 ```bash
 git clone --recurse-submodules https://github.com/diego1401/GaussianWrapping
+cd GaussianWrapping
 conda create -n gaussian_wrapping python=3.9 -y
 conda activate gaussian_wrapping
 
@@ -54,8 +55,6 @@ export PATH=/usr/local/cuda-${CUDA_VERSION}/bin:$PATH
 
 python install.py --cuda_version ${CUDA_VERSION}
 ```
-
-> Note: We recommend using a g++/gcc version > 10
 
 # Training & Mesh Extraction
 
