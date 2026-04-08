@@ -24,27 +24,27 @@ if __name__ == '__main__':
     
     # Install submodules
     print(f"[INFO] Installing Mini-Splatting2 rasterizer...")
-    os.system(f"pip install submodules/diff-gaussian-rasterization_ms")
+    os.system(f"pip install --no-build-isolation submodules/diff-gaussian-rasterization_ms")
     print("[INFO] Mini-Splatting2 rasterizer installed.")
 
     print(f"[INFO] Installing RaDe-GS rasterizer...")
-    os.system(f"pip install submodules/diff-gaussian-rasterization")
+    os.system(f"pip install --no-build-isolation submodules/diff-gaussian-rasterization")
     print("[INFO] RaDe-GS rasterizer installed.")
 
     print(f"[INFO] Installing Ours rasterizer...")
-    os.system(f"pip install submodules/diff-gaussian-rasterization_ours")
+    os.system(f"pip install --no-build-isolation submodules/diff-gaussian-rasterization_ours")
     print("[INFO] Ours rasterizer installed.")
 
     print(f"[INFO] Installing SOF rasterizer...")
-    os.system(f"pip install submodules/diff-gaussian-rasterization_sof")
+    os.system(f"pip install --no-build-isolation submodules/diff-gaussian-rasterization_sof")
     print("[INFO] SOF rasterizer installed.")
     
     print(f"[INFO] Installing Simple KNN...")
-    os.system(f"pip install submodules/simple-knn")
+    os.system(f"pip install --no-build-isolation submodules/simple-knn")
     print("[INFO] Simple KNN installed.")
     
     print(f"[INFO] Installing Fused SSIM...")
-    os.system(f"pip install submodules/fused-ssim")
+    os.system(f"pip install --no-build-isolation submodules/fused-ssim")
     print("[INFO] Fused SSIM installed.")
     
     print(f"[INFO] Installing Triangulation...")
