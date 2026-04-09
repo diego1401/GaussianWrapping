@@ -23,7 +23,7 @@
 
 <br>
 
-[Project Page](https://diego1401.github.io/BlobsToSpokesWebsite/) | [arXiv](#) <!-- placeholder --> | [Download Meshes](https://drive.google.com/drive/folders/1Qc9qMzzPdXAUgggbSwVUMyXc_2A1DrYj?usp=sharing)
+[Project Page](https://diego1401.github.io/BlobsToSpokesWebsite/) | [arXiv](https://arxiv.org/abs/2604.07337) | [Download Meshes](https://drive.google.com/drive/folders/1Qc9qMzzPdXAUgggbSwVUMyXc_2A1DrYj?usp=sharing)
 
 <br>
 
