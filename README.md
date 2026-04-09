@@ -299,10 +299,13 @@ We evaluate mesh-based novel view synthesis on the MipNeRF360 and Tanks and Temp
 ## Citation
 
 ```bibtex
-@article{gomez2026gaussianwrapping,
-  title={From Blobs to Spokes: High-Fidelity Surface Reconstruction via Oriented Gaussians},
-  author={Gomez, Diego and Gu{\'e}don, Antoine and Maruani, Nissim and Gong, Bingchen and Ovsjanikov, Maks},
-  journal={arXiv preprint arXiv:TODO_ARXIV_ID},
-  year={2026}
+@misc{gomez2026blobsspokeshighfidelitysurface,
+      title={From Blobs to Spokes: High-Fidelity Surface Reconstruction via Oriented Gaussians}, 
+      author={Diego Gomez and Antoine Guédon and Nissim Maruani and Bingchen Gong and Maks Ovsjanikov},
+      year={2026},
+      eprint={2604.07337},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2604.07337}, 
 }
 ```
