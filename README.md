@@ -296,6 +296,18 @@ We evaluate mesh-based novel view synthesis on the MipNeRF360 and Tanks and Temp
 
 </details>
 
+## Acknowledgements
+
+We build this project based on [Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting).
+
+For rasterization and mesh extraction, we modified CUDA kernels from [GGGS](https://github.com/HKUST-SAIL/Geometry-Grounded-Gaussian-Splatting) and [SOF](https://github.com/r4dl/SOF).
+
+We also propose to use rasterization techniques from [RaDe-GS](https://baowenz.github.io/radegs/).
+
+We finally use [Nvdiffrast](https://github.com/NVlabs/nvdiffrast) for mesh rasterization.
+
+We thank the authors of all the above projects for their great works!
+
 ## Citation
 
 ```bibtex
