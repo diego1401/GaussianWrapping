@@ -16,7 +16,7 @@ TRAIN_FLAGS = [
     "--feature_rest_lr", "0.00011",
     "--exposure_compensation",
     "--data_device", "cpu",
-    "--N_max_gaussians", "5000000"
+    "--N_max_gaussians", "6000000"
 ]
 
 EXTRACT_FLAGS = [

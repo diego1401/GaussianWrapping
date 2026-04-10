@@ -17,7 +17,7 @@ TRAIN_FLAGS = [
     "--multiview_factor", "0.05",
     "--use_max_size_threshold",
     "--data_device", "cpu",
-    "--N_max_gaussians", "5000000"
+    "--N_max_gaussians", "6000000"
 ]
 
 EXTRACT_FLAGS = [
