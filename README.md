@@ -83,6 +83,7 @@ Each script runs three steps in sequence: training, mesh extraction, and texture
 | Flag | Description |
 |------|-------------|
 | `-r` | Downsample input images (`-r 2` used for metrics and comparisons) |
+| `--isosurface_value` | Offset added to the base transmittance threshold (0.5) to control the surface boundary. Use 0.2 if the mesh is missing fine details (default: 0.0). | 
 | `--N_max_gaussians` | Caps the total number of Gaussians to prevent Out-of-Memory (OOM) errors. |
 
 # Primal Adaptive Meshing
