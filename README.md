@@ -83,7 +83,7 @@ Each script runs three steps in sequence: training, mesh extraction, and texture
 | Flag | Description |
 |------|-------------|
 | `-r` | Downsample input images (`-r 2` used for metrics and comparisons) |
-| `-N_max_gaussians` | Caps the total number of Gaussians to prevent Out-of-Memory (OOM) errors. |
+| `--N_max_gaussians` | Caps the total number of Gaussians to prevent Out-of-Memory (OOM) errors. |
 
 # Primal Adaptive Meshing
 
