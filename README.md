@@ -64,17 +64,16 @@ Use `-s` for the dataset root and `-m` for the output directory.
 We provide two end-to-end scripts that run training followed by mesh extraction:
 
 ```bash
+# RaDeGS rasterizer (Best looking meshes! A bit slower to train, script used for qualitative results on Mipnerf360)
+python gaussian_wrapping/scripts/train_and_extract_gw_radegs.py \
+    -s <PATH_TO_COLMAP_DATASET> \
+    -m <OUTPUT_DIR>
+
 # Our median-depth rasterizer (faster, better metrics)
 python gaussian_wrapping/scripts/train_and_extract_gw_ours.py \
     -s <PATH_TO_COLMAP_DATASET> \
     -m <OUTPUT_DIR> \
-    -r 2
-
-# RaDeGS rasterizer (smoother-looking meshes)
-python gaussian_wrapping/scripts/train_and_extract_gw_radegs.py \
-    -s <PATH_TO_COLMAP_DATASET> \
-    -m <OUTPUT_DIR> \
-    -r 2
+    -r 2 # Flag added to remain comparable to heavier alternatives. This flag was used to obtain the metrics on the paper
 ```
 
 Each script runs three steps in sequence: training, mesh extraction, and texture refinement. The refined mesh is saved alongside the extracted mesh with a `_texture_refined` suffix.
