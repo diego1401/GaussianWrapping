@@ -1,9 +1,9 @@
 [submodule "submodules/Depth-Anything-V2"]
 	path = submodules/Depth-Anything-V2
-	url = git@github.com:DepthAnything/Depth-Anything-V2.git
+	url = https://github.com/DepthAnything/Depth-Anything-V2.git
 [submodule "submodules/nvdiffrast"]
 	path = submodules/nvdiffrast
-	url = git@github.com:NVlabs/nvdiffrast.git
+	url = https://github.com/NVlabs/nvdiffrast.git
 [submodule "gaussian_wrapping/eval/TNTUniScanEvals"]
 	path = gaussian_wrapping/eval/TNTUniScanEvals
 	url = https://github.com/diego1401/TNTUniScanEvals.git
