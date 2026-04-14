@@ -36,6 +36,9 @@
 
 </div>
 
+## Updates
+* **Code Release**: Initial release of the Gaussian Wrapping codebase.
+* **NeRF Synthetic**: Added launch scripts and instructions for the NeRF Synthetic dataset.
 
 
 ## Installation
@@ -296,6 +299,28 @@ Per-scene results are written to `<OUTPUT_DIR>/<scene>/`. Rendered images and me
 We evaluate mesh-based novel view synthesis on the MipNeRF360 and Tanks and Temples datasets. Use the training and mesh extraction scripts described above to produce meshes for these datasets, then refer to [MILo](https://github.com/Anttwo/MILo.git) for the evaluation pipeline.
 
 </details>
+
+### NeRF Synthetic
+<details>
+<summary>Details</summary>
+
+> **Note:** We only launch the training and extraction with the RaDe-GS rasterizer since it leads to smoother meshes. There are no metrics in this script. We provide it just as an example of our method being applied to synthetic scenes.
+
+To run the NeRF Synthetic benchmark using the RaDe-GS rasterizer:
+
+```bash
+python gaussian_wrapping/scripts/launch_nerf_synthetic.py \
+    --data_dir "${DATA_DIR}" \
+    --output_dir "${OUTPUT_DIR}" \
+    --gpu_device "${GPU_DEVICE}"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data_dir` | required | Path to the NeRF synthetic scenes |
+| `--output_dir` | required | Path to output the results |
+| `--gpu_device` | 0 | CUDA device index |
+
 
 ## Acknowledgements
 

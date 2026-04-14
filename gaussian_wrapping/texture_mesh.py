@@ -62,7 +62,7 @@ def main(
         
     # Load mesh
     mesh_name = os.path.basename(args.mesh).split(".")[0]
-    mesh_extension = os.path.basename(args.mesh).split(".")[1]
+    mesh_extension = os.path.basename(args.mesh).split(".")[-1]
     print(f"[INFO] Loading mesh from {args.mesh}")
     print(f"          > Mesh name: {mesh_name}")
     print(f"          > Mesh extension: {mesh_extension}")

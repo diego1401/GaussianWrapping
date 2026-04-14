@@ -395,7 +395,7 @@ def sample_mesh_proportional_to_camera(mesh, cameras, num_points, face_probs=Non
 Plotting functions
 '''
 
-def plot_histogram(occupancy_values: torch.Tensor, filename: str, title: str, delta: float = 0.05):
+def plot_histogram(occupancy_values: torch.Tensor, filename: str, title: str, delta: float = 0.05, iso_value: float = 0.5):
     """
     Plots and saves a professional and beautiful histogram of occupancy values,
     zoomed into the region [0.5 - delta, 0.5 + delta], and sets the y-axis maximum to n_points.
@@ -412,8 +412,8 @@ def plot_histogram(occupancy_values: torch.Tensor, filename: str, title: str, de
     occupancy_values = occupancy_values.flatten()
 
     # Zoom in: select occupancy values in [0.5 - delta, 0.5 + delta]
-    lower = 0.5 - delta
-    upper = 0.5 + delta
+    lower = iso_value - delta
+    upper = iso_value + delta
     occupancy_values_zoomed = occupancy_values[(occupancy_values >= lower) & (occupancy_values <= upper)]
 
     # Ensure output directory exists

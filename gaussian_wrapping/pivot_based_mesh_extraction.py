@@ -59,8 +59,9 @@ def post_process_mesh(mesh, cluster_to_keep=1):
 def evaluation_validation(view, points, inside):
     if view.gt_mask is None:
         return inside
-
-    points_cam = points @ view.R + view.T
+    R = torch.from_numpy(view.R).float().to(points.device)
+    T = torch.from_numpy(view.T).float().to(points.device)
+    points_cam = points @ R + T
     pts2d = points_cam[:, :2] / points_cam[:, 2:]
     pts2d = torch.addcmul(
         pts2d.new_tensor(
@@ -432,7 +433,14 @@ def marching_tetrahedra_with_binary_search(
     )
 
     # Export mesh
-    mesh_save_path = os.path.join(model_path,f"mesh_{args.sdf_mode}_{args.n_pivots}pivots.ply")
+    if args.sdf_mode == "exact_computation" and transmittance_threshold != 0.5:
+        iso_suffix = f"_transmittance_threshold_{transmittance_threshold}"
+    elif args.isosurface_value != 0:
+        iso_suffix = f"_iso_{args.isosurface_value}"
+    else: # isosurface_value == 0
+        iso_suffix = ""
+
+    mesh_save_path = os.path.join(model_path,f"mesh_{args.sdf_mode}_{args.n_pivots}pivots{iso_suffix}.ply")
     if args.use_scores:
         mesh_save_path = mesh_save_path.replace(".ply", "_scores.ply")
     if args.use_searched_pivots:

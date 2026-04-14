@@ -253,6 +253,8 @@ def training(
         # ---Render scene---
         if (iteration - 1) == debug_from:
             pipe.debug = True
+
+        bg = torch.rand((3), device="cuda") if opt.random_background else background
             
         reg_kick_on = iteration >= args.regularization_from_iter
         normal_field_kick_on = args.use_normal_field and (iteration >= normal_field_config["start_iter"])
@@ -275,7 +277,7 @@ def training(
         # If depth-normal regularization or normal field regularization are active,
         # we use the rasterizer compatible with depth and normal rendering.
         render_pkg = render(
-            viewpoint_cam, gaussians, pipe, background,
+            viewpoint_cam, gaussians, pipe, bg,
             require_coord=False, 
             require_depth=render_depth_in_forward_pass,
         )
@@ -286,6 +288,9 @@ def training(
             render_pkg["visibility_filter"], render_pkg["radii"]
         )
         gt_image = viewpoint_cam.original_image.cuda()
+        if viewpoint_cam.gt_mask is not None:
+            alpha_mask = viewpoint_cam.gt_mask.cuda()
+            gt_image = gt_image * alpha_mask + bg.unsqueeze(-1).unsqueeze(-1) * (1.0 - alpha_mask)
 
         # Rendering loss
         if args.decoupled_appearance or args.exposure_compensation:
@@ -384,7 +389,7 @@ def training(
                 multiview_render_pkg = render_pkg
             else:
                 multiview_render_pkg = multiview_render(
-                    viewpoint_cam, gaussians, pipe, background,
+                    viewpoint_cam, gaussians, pipe, bg,
                     require_coord=False, 
                     require_depth=True,
                 )
@@ -398,7 +403,7 @@ def training(
                 gaussians=gaussians,
                 render_func=render,
                 pipe=pipe,
-                background=background,
+                background=bg,
                 multiview_config=multiview_config,
                 multiview_state=multiview_state,
                 kernel_size=0.0,
@@ -425,7 +430,7 @@ def training(
                 gaussians=gaussians,
                 scene=scene,
                 pipe=pipe,
-                background=background,
+                background=bg,
                 kernel_size=0.0,
                 config=normal_field_config,
                 normal_field_state=normal_field_state,
@@ -451,7 +456,7 @@ def training(
                 render_pkg=render_pkg,
                 gaussians=gaussians,
                 pipe=pipe,
-                background=background,
+                background=bg,
                 kernel_size=0.0,
                 milo_config=milo_config,
                 milo_state=milo_state,
@@ -487,7 +492,7 @@ def training(
                 ema_occupied_centers_loss_for_log,
             ) = log_normal_field_training_progress(
                 args, iteration, log_interval, progress_bar, run,
-                scene, gaussians, pipe, opt, background,
+                scene, gaussians, pipe, opt, bg,
                 viewpoint_idx, viewpoint_cam, render_pkg, 
                 normal_field_render_pkg if normal_field_kick_on else None, 
                 milo_pkg if milo_kick_on else None,
@@ -562,7 +567,7 @@ def training(
                     gaussians=gaussians,
                     cameras=scene.getTrainCameras().copy(),
                     pipe=pipe,
-                    background=background,
+                    background=bg,
                 )
                 gaussians_have_changed = True
                 print(f"        > Number of Gaussians after pruning: {gaussians._xyz.shape[0]}.")
@@ -597,7 +602,7 @@ def training(
                         cameras=scene.getTrainCameras().copy(),
                         scene=scene, 
                         pipe=pipe, 
-                        background=background, 
+                        background=bg, 
                         kernel_size=0.0, 
                         config=normal_field_config,
                         normal_field_state=normal_field_state, 
@@ -639,7 +644,7 @@ def training(
                         gaussians=gaussians,
                         cameras=scene.getTrainCameras().copy(),
                         pipe=pipe,
-                        background=background,
+                        background=bg,
                     )
                     gaussians_have_changed = True
                     print(f"        > Number of Gaussians after pruning: {gaussians._xyz.shape[0]}.")

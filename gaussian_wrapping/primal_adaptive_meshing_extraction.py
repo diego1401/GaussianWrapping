@@ -228,10 +228,10 @@ def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, glo
         occupancy = occupancy.reshape(args.p_per_tet, -1).mean(0)
     
     # Determine inside/outside based on occupancy threshold
-    # occupancy > 0.5 means inside/occupied
+    # occupancy > args.iso_surface_value means inside/occupied
     occupancy_np = occupancy.cpu().detach().numpy()
     vacancy = 1.0 - occupancy_np
-    meshfromdelaunay.tet_colors = (vacancy < 0.5)
+    meshfromdelaunay.tet_colors = (occupancy_np > args.iso_surface_value)
 
     # Extract surface
     print("[INFO] Extracting surface...")
@@ -290,13 +290,13 @@ def gradient_descent_refinement(points: np.ndarray, occupancy_function: Callable
             xi_chunk = xi_chunk.to(device) # (N, 3)
             grad = grad_occupancy_function(xi_chunk) # (N, 3) # NOTE: Gradient log v
             occupancy_values = occupancy_function(xi_chunk).to(device).unsqueeze(-1)
-            alpha = (0.5 - occupancy_values) / (grad.norm(dim=-1, keepdim=True)**2 + 1e-6) # (N, 1)
+            alpha = (args.iso_surface_value - occupancy_values) / (grad.norm(dim=-1, keepdim=True)**2 + 1e-6) # (N, 1)
             new_xi_chunk = xi_chunk - alpha.clamp(min=-1.0, max=1.0) * grad # (N, 3)
             xi_new_chunks.append(new_xi_chunk.clone().cpu())
         xi = torch.cat(xi_new_chunks, dim=0) # (N, 3)
         
         if args.plot_vacancy_histogram:
-            plot_histogram(occupancy_values.cpu().numpy(), filename=os.path.join(args.model_path, f"histogram_occupancy_values_{i}.png"), title="Histogram of Occupancy Values")
+            plot_histogram(occupancy_values.cpu().numpy(), filename=os.path.join(args.model_path, f"histogram_occupancy_values_{i}.png"), title="Histogram of Occupancy Values", iso_value=args.iso_surface_value)
 
     normal_chunks, norm_chunks = [], []
     for xi_chunk in torch.chunk(xi, xi.shape[0] // chunk_size + 1):
@@ -316,9 +316,9 @@ def filter_points_by_occupancy(points: np.ndarray, global_occupancy_func: Callab
         
     points_torch = torch.from_numpy(points).float().to("cuda")
     occupancy = global_occupancy_func(points_torch)
-    vacancy = 1.0 - occupancy
+    # vacancy = 1.0 - occupancy
     
-    mask = (vacancy - 0.5).abs() <= threshold
+    mask = (occupancy - args.iso_surface_value).abs() <= threshold
     
     filtered_points = points[mask.cpu().numpy()]
     
@@ -511,8 +511,13 @@ if __name__ == "__main__":
     parser.add_argument("--plot_vacancy_histogram", action="store_true", help="Plot histogram of vacancy values")
     parser.add_argument("--no_force_use_all_points", action="store_true", help="Disable resampling to guarantee max_points valid points after vacancy filtering.")
     parser.add_argument("--oversampling_factor", type=int, default=2, help="Sample this multiple of max_points upfront to reduce the number of occupancy passes. This is mostly useful when max_points is low.")
+    parser.add_argument("--iso_surface_value", type=float, default=0.0, help="Isosurface value for mesh extraction")
     
     args = get_combined_args(parser)
+
+    transmittance_threshold = 0.5 + args.iso_surface_value
+    assert transmittance_threshold >= 0 and transmittance_threshold <= 1, "Transmittance threshold must be between 0 and 1"
+    args.iso_surface_value = 1.0 - transmittance_threshold # Transformation to make argument coherent to previous code.
     
     # Initialize RNG
     np.random.seed(0)

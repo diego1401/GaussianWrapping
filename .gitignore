@@ -220,6 +220,5 @@ learnableearthparser/fast_sampler/_sampler.c
 comparisons/
 gaussian_wrapping/experiments/
 deprecated/
-CLAUDE.md
-DESIGN.md
-TRAIN_CLEANING.md
+*.md
+*.json
