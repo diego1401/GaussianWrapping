@@ -73,7 +73,7 @@ def compute_global_occupancy(points_input, views, gaussians, pipeline, kernel_si
                 final_weight_chunk = torch.min(final_weight_chunk, ret["alpha_integrated"])
 
         if has_inside_key:
-            final_weight_chunk[torch.logical_not(any_valid_chunk)] = 0
+            final_weight_chunk[torch.logical_not(any_valid_chunk)] = 1.0
         all_occupancy_values.append(final_weight_chunk.cpu())
     
     occupancies = torch.cat(all_occupancy_values, dim=0)
@@ -97,13 +97,7 @@ def export_mesh(nv: np.ndarray, nf: np.ndarray, name: str, args):
     o3d.io.write_triangle_mesh(name, mesh)
 
 def create_global_occupancy_func(args: ArgumentParser, return_details=False):
-    # Setup Rasterizer
-    print(f"[INFO] Using {args.rasterizer} as rasterizer.")
-    if args.rasterizer == "ours":
-        from gaussian_renderer.ours import integrate_ours as integrate_func
-    else:
-        raise ValueError(f"Always use the Ours rasterizer to apply Primal Adaptive Meshing.")
-
+    
     gaussians = GaussianModel(
         args.sh_degree,
         learn_occupancy=True, 
@@ -126,15 +120,75 @@ def create_global_occupancy_func(args: ArgumentParser, return_details=False):
     # Kernel size
     kernel_size = args.kernel_size if hasattr(args, 'kernel_size') else 0.0
 
-    global_occupancy_func = lambda query_points: compute_global_occupancy(
-        query_points, 
-        views, 
-        gaussians, 
-        pipeline, 
-        kernel_size, 
-        integrate_func,
-        device="cuda"
-    )
+    # Setup Rasterizer
+    print(f"[INFO] Using {args.rasterizer} as rasterizer.")
+    if args.rasterizer == "ours":
+
+        occupancy_threshold = 0.5 - args.iso_surface_value
+        assert occupancy_threshold >= 0 and occupancy_threshold <= 1, "Occupancy threshold must be between 0 and 1"
+        print(f"[INFO] Iso surface shift of {args.iso_surface_value} corresponds to using occupancy threshold: {occupancy_threshold}")
+        args.iso_surface_value = occupancy_threshold # Transformation to make argument coherent to previous code.
+        from gaussian_renderer.ours import integrate_ours as integrate_func
+        global_occupancy_func = lambda query_points: compute_global_occupancy(
+            query_points, 
+            views, 
+            gaussians, 
+            pipeline, 
+            kernel_size, 
+            integrate_func,
+            device="cuda"
+        )
+    elif args.rasterizer == "radegs":
+        raise ValueError("Always use the Ours rasterizer to apply Primal Adaptive Meshing.")
+        # Background color and kernel size
+        bg_color = [0, 0, 0]
+        background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+        # Get scene spatial extent
+        scene_radius = get_cameras_spatial_extent(cameras=views)['radius'].item()
+        print(f"[INFO] Scene radius: {scene_radius}")
+        
+        # Define frustum parameters
+        apply_frustum_culling = True
+        standard_scale = 6.
+        frustum_near = 0.02 * scene_radius / standard_scale
+        frustum_far = 1e6 * scene_radius / standard_scale
+        if apply_frustum_culling:
+            print(f"[INFO] Using frustum culling with znear={frustum_near} and zfar={frustum_far}")
+        from gaussian_renderer.sof import (
+            default_splat_args, 
+            GlobalSortOrder,
+            evaluate_vacancy_sof_fast,
+        )
+        transmittance_threshold = 0.5 + args.iso_surface_value
+        print(f"[INFO] Using transmittance threshold: {transmittance_threshold}")
+        args.iso_surface_value = transmittance_threshold
+        
+        @torch.no_grad()
+        def global_occupancy_func(points):
+            splat_args = default_splat_args()
+            # splat_args = ExtendedSettings()
+            splat_args.sort_settings.sort_order = GlobalSortOrder.MIN_Z_BOUNDING
+            splat_args.meshing_settings.alpha_early_stop = True
+            splat_args.meshing_settings.transmittance_threshold = transmittance_threshold
+            
+            is_vacant = evaluate_vacancy_sof_fast(
+                points=points,
+                views=views, 
+                gaussians=gaussians, 
+                pipeline=pipeline, 
+                background=background, 
+                kernel_size=kernel_size, 
+                splat_args=splat_args, 
+                znear=frustum_near,
+                zfar=frustum_far,
+                permute_views=True,
+            )  # (N,)
+            
+            occupancy = 1. - is_vacant.float()  # (N,)
+            return occupancy.view(-1)  # (N,)    
+    else:
+        raise ValueError(f"Always use the Ours rasterizer to apply Primal Adaptive Meshing.")
+
     vector_field = GaussianVectorField(
         gaussians, 
         nearest_neighbors_type="kdtree", 
@@ -221,17 +275,16 @@ def mesh_from_points_and_occupancy(points: np.ndarray, args: ArgumentParser, glo
     
     # Compute occupancy
     print(f"[INFO] Computing occupancy on {torch_query_points.shape[0]} points...")
-    occupancy = global_occupancy_func(torch_query_points)
+    transmittance = global_occupancy_func(torch_query_points)
     
     if args.p_per_tet > 1:
         # Reshape back to (p_per_tet, n_tets) and mean over p_per_tet
-        occupancy = occupancy.reshape(args.p_per_tet, -1).mean(0)
+        transmittance = transmittance.reshape(args.p_per_tet, -1).mean(0)
     
     # Determine inside/outside based on occupancy threshold
     # occupancy > args.iso_surface_value means inside/occupied
-    occupancy_np = occupancy.cpu().detach().numpy()
-    vacancy = 1.0 - occupancy_np
-    meshfromdelaunay.tet_colors = (occupancy_np > args.iso_surface_value)
+    transmittance_np = transmittance.cpu().detach().numpy()
+    meshfromdelaunay.tet_colors = (transmittance_np > args.iso_surface_value)
 
     # Extract surface
     print("[INFO] Extracting surface...")
@@ -290,8 +343,13 @@ def gradient_descent_refinement(points: np.ndarray, occupancy_function: Callable
             xi_chunk = xi_chunk.to(device) # (N, 3)
             grad = grad_occupancy_function(xi_chunk) # (N, 3) # NOTE: Gradient log v
             occupancy_values = occupancy_function(xi_chunk).to(device).unsqueeze(-1)
-            alpha = (args.iso_surface_value - occupancy_values) / (grad.norm(dim=-1, keepdim=True)**2 + 1e-6) # (N, 1)
-            new_xi_chunk = xi_chunk - alpha.clamp(min=-1.0, max=1.0) * grad # (N, 3)
+            norm_squared = grad.norm(dim=-1, keepdim=True)**2
+            alpha = torch.zeros_like(xi_chunk)
+            # Points for which the normal field is valid
+            valid_mask = (norm_squared > 0.5).squeeze()
+            # (iso - v) = occ  + iso - 1 = occ - new_iso # See init 
+            alpha[valid_mask] = (occupancy_values[valid_mask] - args.iso_surface_value) / (norm_squared[valid_mask]) # (N, 1)
+            new_xi_chunk = xi_chunk + 0.5 * alpha.clamp(min=-1.0, max=1.0) * grad # (N, 3)
             xi_new_chunks.append(new_xi_chunk.clone().cpu())
         xi = torch.cat(xi_new_chunks, dim=0) # (N, 3)
         
@@ -316,7 +374,6 @@ def filter_points_by_occupancy(points: np.ndarray, global_occupancy_func: Callab
         
     points_torch = torch.from_numpy(points).float().to("cuda")
     occupancy = global_occupancy_func(points_torch)
-    # vacancy = 1.0 - occupancy
     
     mask = (occupancy - args.iso_surface_value).abs() <= threshold
     
@@ -486,12 +543,12 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="PoNQ Mesh Extraction from Point Cloud")
     
     # Model parameters
-    ModelParams(parser)
+    model = ModelParams(parser)
     PipelineParams(parser)
     
     parser.add_argument("--iteration", default=30000, type=int)
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--rasterizer", default="ours", type=str, choices=["ours"])
+    parser.add_argument("--rasterizer", default="ours", type=str, choices=["ours", "radegs"])
     parser.add_argument("--disable_mip_filter", action="store_true")
     
     parser.add_argument("--input_mesh", type=str, help="Path to input mesh (ply/obj)", required=True)
@@ -514,10 +571,6 @@ if __name__ == "__main__":
     parser.add_argument("--iso_surface_value", type=float, default=0.0, help="Isosurface value for mesh extraction")
     
     args = get_combined_args(parser)
-
-    transmittance_threshold = 0.5 + args.iso_surface_value
-    assert transmittance_threshold >= 0 and transmittance_threshold <= 1, "Transmittance threshold must be between 0 and 1"
-    args.iso_surface_value = 1.0 - transmittance_threshold # Transformation to make argument coherent to previous code.
     
     # Initialize RNG
     np.random.seed(0)

@@ -37,6 +37,10 @@ if __name__ == "__main__":
     parser.add_argument("--depth_order_config", type=str, default=None,
                         help="Depth-order config name (see configs/depth_order/). "
                              "Only used when --depth_order is set.")
+    parser.add_argument("--apply_decimation", action="store_true",
+                        help="Apply Blender decimation before texturing. NOTE: This willl not affect the mesh used for metric computation. This flag only outputs an additional decimated mesh.")
+    parser.add_argument("--decimate_ratio", type=float, default=0.3,
+                        help="Decimation ratio for Blender.")
     args = parser.parse_args()
 
     data_device = "cuda" if args.data_on_gpu else "cpu"
@@ -60,6 +64,8 @@ if __name__ == "__main__":
             "--N_max_gaussians 6000000",
             "--depth_order" if args.depth_order else "",
             f"--depth_order_config {args.depth_order_config}" if args.depth_order and args.depth_order_config else "",
+            "--apply_decimation" if args.apply_decimation else "",
+            f"--decimate_ratio {args.decimate_ratio}" if args.apply_decimation else "",
         ]))
 
         print("\n[INFO] Running train & extract command:", train_extract_command, sep="\n")

@@ -7,27 +7,21 @@ sys.path.append(BASE_DIR)
 
 
 scenes = [
-    "chair",
-    "drums",
-    "ficus",
-    "hotdog",
-    "lego",
-    "materials",
-    "mic",
-    "ship",
+    "fernvase",
+    "horse",
+    "khady",
+    "kitten",
+    "pug",
+    "woolly",
 ]
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=("NeRF Synthetic benchmark: train + extract mesh (radegs rasterizer).\n\n"
-                     "Note: We only launch the training and extraction with the RaDe-GS rasterizer "
-                     "since it leads to smoother meshes. There are no metrics in this script. "
-                     "We provide it just as an example of our method being applied to synthetic scenes."),
-        formatter_class=argparse.RawTextHelpFormatter
+        description="Shelly benchmark: train + extract mesh (radegs rasterizer)."
     )
     parser.add_argument("--data_dir", type=str, required=True,
-                        help="Root directory containing one subdirectory per NeRF Synthetic scene.")
+                        help="Root directory containing one subdirectory per Shelly scene.")
     parser.add_argument("--output_dir", type=str, default="./output",
                         help="Where to save trained models and meshes.")
     parser.add_argument("--gpu_device", type=str, default="0",
@@ -50,6 +44,9 @@ if __name__ == "__main__":
         scene_data_dir = os.path.join(args.data_dir, scene_name)
         scene_output_dir = os.path.join(args.output_dir, scene_name)
 
+        # ------------------------------------------------------------------ #
+        # Train & Extract Mesh                                                #
+        # ------------------------------------------------------------------ #
         train_extract_command = " ".join(filter(None, [
             f"CUDA_VISIBLE_DEVICES={args.gpu_device}",
             "python gaussian_wrapping/scripts/train_and_extract_gw_radegs.py",
@@ -59,7 +56,6 @@ if __name__ == "__main__":
             "--depth_order" if args.depth_order else "",
             "--random_background",
             "--isosurface_value 0.2",
-            "--log_interval 1000",
             "--no_postprocess",
             f"--depth_order_config {args.depth_order_config}" if args.depth_order and args.depth_order_config else "",
         ]))

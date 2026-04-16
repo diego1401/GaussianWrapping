@@ -61,8 +61,9 @@ def main(
             images.append(render_pkg['render'].cpu())
         
     # Load mesh
-    mesh_name = os.path.basename(args.mesh).split(".")[0]
-    mesh_extension = os.path.basename(args.mesh).split(".")[-1]
+    mesh_filename = os.path.basename(args.mesh)
+    mesh_name, mesh_ext = os.path.splitext(mesh_filename)
+    mesh_extension = mesh_ext.lstrip('.')
     print(f"[INFO] Loading mesh from {args.mesh}")
     print(f"          > Mesh name: {mesh_name}")
     print(f"          > Mesh extension: {mesh_extension}")
