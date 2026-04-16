@@ -221,4 +221,9 @@ comparisons/
 gaussian_wrapping/experiments/
 deprecated/
 *.md
-*.json
+*.
+
+# Ignore symlinks
+datasets
+benchmark_clean_code
+nvdiffrast
