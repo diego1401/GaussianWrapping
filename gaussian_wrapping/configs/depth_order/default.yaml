@@ -1,4 +1,4 @@
-depthanythingv2_checkpoint_dir: '../submodules/Depth-Anything-V2/checkpoints/'
+depthanythingv2_checkpoint_dir: 'submodules/Depth-Anything-V2/checkpoints/'
 depthanythingv2_encoder: 'vitl'
 
 weight_initial_value: 0.0

@@ -35,15 +35,39 @@ from eval.TNTUniScanEvals.uniform_sampling_eval import (
 
 # Extraction and processing imports
 from pivot_based_mesh_extraction import (
-    evaluation_validation,
     post_process_mesh
 )
 
-'''
-Global Occupancy Function
-'''
+@torch.no_grad()
+def sample_gt_mask_value(view, points):
+    """
+    Samples the *continuous* gt_mask alpha value [0, 1] at the projected 2D
+    locations of the given 3D points.  Returns 1.0 everywhere when no gt_mask
+    is available (neutral for min-accumulation).
+    """
+    if view.gt_mask is None:
+        return torch.ones(points.shape[0], device=points.device)
+    R = torch.from_numpy(view.R).float().to(points.device)
+    T = torch.from_numpy(view.T).float().to(points.device)
+    points_cam = points @ R + T
+    pts2d = points_cam[:, :2] / points_cam[:, 2:]
+    pts2d = torch.addcmul(
+        pts2d.new_tensor(
+            [
+                (view.Cx * 2.0 + 1.0) / view.image_width - 1.0,
+                (view.Cy * 2.0 + 1.0) / view.image_height - 1.0,
+            ]
+        ),
+        pts2d.new_tensor([view.Fx * 2.0 / view.image_width, view.Fy * 2.0 / view.image_height]),
+        pts2d,
+    )
+    sampled_mask = torch.nn.functional.grid_sample(
+        view.gt_mask[None].cuda(), pts2d[None, None], align_corners=True
+    )
+    return sampled_mask.squeeze().clamp(0.0, 1.0)
 
-def compute_global_occupancy(points_input, views, gaussians, pipeline, kernel_size, integrate_func, chunk_size=1_000_000, verbose_views=False, device="cuda"):
+
+def compute_global_occupancy(points_input, views, gaussians, pipeline, kernel_size, integrate_func, mask_bg_threshold=0.01, chunk_size=1_000_000, verbose_views=False, device="cuda"):
     all_occupancy_values = []
     input_is_numpy = False
     if isinstance(points_input, np.ndarray):
@@ -61,19 +85,37 @@ def compute_global_occupancy(points_input, views, gaussians, pipeline, kernel_si
             ret = integrate_func(point_chunk, view, gaussians, pipeline, kernel_size)
             if "inside" in ret:
                 has_inside_key = True
-                valid_points = evaluation_validation(view, point_chunk, ret["inside"])
-                any_valid_chunk = torch.logical_or(any_valid_chunk, valid_points)
+                in_frustum = ret["inside"]
+                mask_alpha = sample_gt_mask_value(view, point_chunk)
+
+                # A point is "definitely background" only when the continuous
+                # mask alpha is very close to zero.  Anti-aliased edges (e.g.
+                # thin geometry with mask ≈ 0.2-0.4) are NOT treated as
+                # background, preserving fine structures.
+                definitely_background = in_frustum & (mask_alpha < mask_bg_threshold)
+                possibly_foreground   = in_frustum & (mask_alpha >= mask_bg_threshold)
+
+                # Any frustum-visible point counts as "observed"
+                any_valid_chunk = torch.logical_or(any_valid_chunk, in_frustum)
+
                 final_weight_chunk = torch.where(
-                    valid_points,
+                    possibly_foreground,
+                    # Foreground / edge → normal min-occupancy accumulation
                     torch.min(ret["alpha_integrated"], final_weight_chunk),
-                    final_weight_chunk,
+                    torch.where(
+                        definitely_background,
+                        # Truly background → actively vote "empty"
+                        torch.zeros_like(final_weight_chunk),
+                        # Not in frustum → abstain (keep current value)
+                        final_weight_chunk,
+                    ),
                 )
             else:
                 has_inside_key = False
                 final_weight_chunk = torch.min(final_weight_chunk, ret["alpha_integrated"])
 
         if has_inside_key:
-            final_weight_chunk[torch.logical_not(any_valid_chunk)] = 1.0
+            final_weight_chunk[torch.logical_not(any_valid_chunk)] = 0.0
         all_occupancy_values.append(final_weight_chunk.cpu())
     
     occupancies = torch.cat(all_occupancy_values, dim=0)
@@ -129,6 +171,8 @@ def create_global_occupancy_func(args: ArgumentParser, return_details=False):
         print(f"[INFO] Iso surface shift of {args.iso_surface_value} corresponds to using occupancy threshold: {occupancy_threshold}")
         args.iso_surface_value = occupancy_threshold # Transformation to make argument coherent to previous code.
         from gaussian_renderer.ours import integrate_ours as integrate_func
+        mask_bg_threshold = args.mask_bg_threshold if hasattr(args, 'mask_bg_threshold') else 0.01
+        print(f"[INFO] Mask background threshold: {mask_bg_threshold} (mask alpha < this → force empty)")
         global_occupancy_func = lambda query_points: compute_global_occupancy(
             query_points, 
             views, 
@@ -136,6 +180,7 @@ def create_global_occupancy_func(args: ArgumentParser, return_details=False):
             pipeline, 
             kernel_size, 
             integrate_func,
+            mask_bg_threshold=mask_bg_threshold,
             device="cuda"
         )
     elif args.rasterizer == "radegs":
@@ -368,14 +413,14 @@ def gradient_descent_refinement(points: np.ndarray, occupancy_function: Callable
 
     return refined_points, refined_normals, vector_field_norms
 
-def filter_points_by_occupancy(points: np.ndarray, global_occupancy_func: Callable, threshold=0.1):
+def filter_points_by_occupancy(points: np.ndarray, global_occupancy_func: Callable, iso_surface_value: float, threshold=0.1):
     if points.shape[0] == 0:
         return points, np.zeros(points.shape[0], dtype=bool)
         
     points_torch = torch.from_numpy(points).float().to("cuda")
     occupancy = global_occupancy_func(points_torch)
     
-    mask = (occupancy - args.iso_surface_value).abs() <= threshold
+    mask = (occupancy - iso_surface_value).abs() <= threshold
     
     filtered_points = points[mask.cpu().numpy()]
     
@@ -473,7 +518,7 @@ def refine_and_filter_points(points: np.ndarray, global_occupancy_func: Callable
     # Filter points with global occupancy function
     print(f"[INFO] Filtering points with vacancy threshold {args.vacancy_threshold}...")
     n_points_before_filtering = refined_points.shape[0]
-    final_points, mask = filter_points_by_occupancy(refined_points, global_occupancy_func, threshold=args.vacancy_threshold)
+    final_points, mask = filter_points_by_occupancy(refined_points, global_occupancy_func, iso_surface_value=args.iso_surface_value, threshold=args.vacancy_threshold)
     n_points_after_filtering = final_points.shape[0]
     print(f"[INFO] Filtered {n_points_before_filtering - n_points_after_filtering} points out of {n_points_before_filtering}")
     ret_pckg["final_points"] = final_points
@@ -569,6 +614,11 @@ if __name__ == "__main__":
     parser.add_argument("--no_force_use_all_points", action="store_true", help="Disable resampling to guarantee max_points valid points after vacancy filtering.")
     parser.add_argument("--oversampling_factor", type=int, default=2, help="Sample this multiple of max_points upfront to reduce the number of occupancy passes. This is mostly useful when max_points is low.")
     parser.add_argument("--iso_surface_value", type=float, default=0.0, help="Isosurface value for mesh extraction")
+    parser.add_argument("--mask_bg_threshold", type=float, default=0.01,
+                        help="Mask alpha below this value is treated as definitely-background "
+                             "(occupancy forced to 0). Higher values are more aggressive at "
+                             "removing floaters but may erode fine geometry. Default: 0.01.")
+
     
     args = get_combined_args(parser)
     

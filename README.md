@@ -37,8 +37,8 @@
 </div>
 
 ## Updates
-* **Code Release**: Initial release of the Gaussian Wrapping codebase.
-* **NeRF Synthetic**: Added launch scripts and instructions for the NeRF Synthetic dataset.
+* **01/05/2026 — Update**: Added example bounding volumes for Primal Adaptive Meshing and launch scripts for the NeRF Synthetic dataset.
+* **07/04/2026 — Code Release**: Initial release of the Gaussian Wrapping codebase.
 
 
 ## Installation
@@ -126,6 +126,32 @@ python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
 | `--plot_vacancy_histogram` | off | Save per-step vacancy histograms to the output directory |
 
 </details>
+
+### Using the Provided Bounding Volumes
+
+We provide ready-to-use bounding volume files for several scenes in `assets/bounding_volumes_examples/`. These can be used directly with PAM — no Blender setup required:
+
+| File | Scene |
+|------|-------|
+| `Barn_bounding_volume.json` | Tanks and Temples — Barn |
+| `bicycle_bounding_volume.json` | MipNeRF 360 — Bicycle |
+| `bonsai_bounding_volume.json` | MipNeRF 360 — Bonsai |
+| `garden_bounding_volume.json` | MipNeRF 360 — Garden |
+| `kitchen_bounding_volume.json` | MipNeRF 360 — Kitchen |
+
+To run PAM with one of these bounding volumes:
+
+```bash
+python gaussian_wrapping/primal_adaptive_meshing_extraction.py \
+    -s <PATH_TO_COLMAP_DATASET> \
+    -m <OUTPUT_DIR> \
+    --input_mesh <PATH_TO_INPUT_MESH> \
+    --output_mesh <PATH_TO_OUTPUT_MESH.ply> \
+    --bounding_box_method blender \
+    --bounding_box_file assets/bounding_volumes_examples/Barn_bounding_volume.json
+```
+
+To create your own bounding volumes for other scenes, see the Blender add-on below.
 
 ## Blender Bounding Volume Add-on
 

@@ -788,7 +788,7 @@ if __name__ == "__main__":
     # > This loss relies on Depth-AnythingV2, and is not used in MILo paper.
     # > In the paper, MILo does not rely on any learned prior.
     parser.add_argument("--depth_order", action="store_true")
-    parser.add_argument("--depth_order_config", type=str, default="default_regular_densification")
+    parser.add_argument("--depth_order_config", type=str, default="default")
 
     # ----- 3D Mip Filter -----
     # > Inspired by Mip-Splatting.

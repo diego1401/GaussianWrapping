@@ -79,8 +79,8 @@ if __name__ == "__main__":
             f"--input_mesh {input_mesh}",
             f"--output_mesh {pam_output_mesh}",
             "--max_points 2000000",
-            "--bounding_box_method 'scene'",
-            "--iso_surface_value 0.2"
+            "--bounding_box_method scene",
+            "--iso_surface_value 0.2",
         ]))
 
         print("\n[INFO] Running PAM extraction command:", pam_extract_command, sep="\n")
