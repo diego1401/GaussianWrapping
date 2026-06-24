@@ -5,7 +5,7 @@
 <font size="4">
 <a href="https://diego1401.github.io">Diego Gomez*<sup>1</sup></a>&emsp;
 <a href="https://anttwo.github.io/">Antoine Guédon*<sup>1</sup></a>&emsp;
-<a href="https://nissmar.github.io/">Nissim Maruani<sup>1,2</sup></a>&emsp;
+<a href="https://nissmar.github.io/">Nissim Maruani<sup>2</sup></a>&emsp;
 <a href="https://s2.hk/">Bingchen Gong<sup>1</sup></a>&emsp;
 <a href="https://www.lix.polytechnique.fr/~maks/">Maks Ovsjanikov<sup>1</sup></a>
 </font>
