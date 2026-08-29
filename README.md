@@ -23,6 +23,8 @@
 
 <br>
 
+<a href="https://eccv.ecva.net/"><img src="https://img.shields.io/badge/ECCV-2026-blue?style=for-the-badge" alt="ECCV 2026"></a>
+
 [Project Page](https://diego1401.github.io/BlobsToSpokesWebsite/) | [arXiv](https://arxiv.org/abs/2604.07337) | [Download Meshes](https://drive.google.com/drive/folders/1Qc9qMzzPdXAUgggbSwVUMyXc_2A1DrYj?usp=sharing)
 
 <br>
