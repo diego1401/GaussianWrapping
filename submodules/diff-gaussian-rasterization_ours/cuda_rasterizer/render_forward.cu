@@ -279,8 +279,72 @@ __device__ __forceinline__ void computeCov3D(const glm::vec3 scale, float mod, c
     cov3D[5] = Sigma[2][2];
 }
 
+// KB4 counterpart of in_frustum, ndc2Pix and computeCov2D. computeCov2D runs in a frame whose z axis points
+// at the mean, where its pinhole terms stay regular at any angle, and J maps that frame's tangent plane to
+// pixels, so J * cov_n * J^T is the EWA of the full 2x3 KB4 Jacobian at the mean.
+__device__ __forceinline__ bool projectKB4(const float3& mean, const float* viewmatrix, const CudaRasterizer::KB4Camera& cam,
+                                          const float kernel_size, const float* cov3D, const glm::vec3* scale, const float4* rotation,
+                                          const float mod, float3& t, float2& point_image, float* cov2D, float3* normal,
+                                          float4* ray_plane, float& coef) {
+    t                 = transformPoint4x3(mean, viewmatrix);
+    const float rho   = sqrtf(t.x * t.x + t.y * t.y);
+    const float dist  = norm3df(t.x, t.y, t.z);
+    const float theta = atan2f(rho, t.z);
+    if (dist <= NEAR_PLANE || theta > cam.theta_max + KB4_THETA_MARGIN)
+        return false;
+    const float t2      = theta * theta;
+    const float theta_d = theta * (1.f + t2 * (cam.k1 + t2 * (cam.k2 + t2 * (cam.k3 + t2 * cam.k4))));
+    const float a       = 1.f + t2 * (3.f * cam.k1 + t2 * (5.f * cam.k2 + t2 * (7.f * cam.k3 + t2 * 9.f * cam.k4))); // d theta_d / d theta
+    if (a <= 0.f) // the polynomial folds back
+        return false;
+    const float cos_p = rho > 0.f ? t.x / rho : 1.f;
+    const float sin_p = rho > 0.f ? t.y / rho : 0.f;
+    point_image       = {cam.fx * theta_d * cos_p + cam.cx, cam.fy * theta_d * sin_p + cam.cy};
+
+    // Rows of the local frame: ex radial, ey tangential, ez towards the mean.
+    const float sin_t = rho / dist, cos_t = t.z / dist;
+    const float3 ex   = {cos_t * cos_p, cos_t * sin_p, -sin_t};
+    const float3 ey   = {-sin_p, cos_p, 0.f};
+    const float3 ez   = {sin_t * cos_p, sin_t * sin_p, cos_t};
+    float local_view[16];
+#pragma unroll
+    for (int c = 0; c < 4; c++) {
+        const float* v        = viewmatrix + 4 * c;
+        local_view[4 * c]     = ex.x * v[0] + ex.y * v[1] + ex.z * v[2];
+        local_view[4 * c + 1] = ey.x * v[0] + ey.y * v[1] + ey.z * v[2];
+        local_view[4 * c + 2] = ez.x * v[0] + ez.y * v[1] + ez.z * v[2];
+        local_view[4 * c + 3] = v[3];
+    }
+    float cov_n[3], unused_coef;
+    float3 normal_n;
+    float4 ray_n;
+    computeCov2D(mean, 1.f, 1.f, 1.f, 1.f, 0.f, cov3D, local_view, cov_n, &normal_n, &ray_n, unused_coef, scale, rotation, mod);
+
+    // J = diag(fx, fy) R(phi) diag(a, b) in pixels per radian along ex and ey.
+    const float b     = rho > 0.f ? theta_d / sin_t : 1.f;
+    const float j00   = cam.fx * cos_p * a, j01 = -cam.fx * sin_p * b;
+    const float j10   = cam.fy * sin_p * a, j11 = cam.fy * cos_p * b;
+    const float c00   = j00 * j00 * cov_n[0] + 2.f * j00 * j01 * cov_n[1] + j01 * j01 * cov_n[2];
+    const float c01   = j00 * j10 * cov_n[0] + (j00 * j11 + j01 * j10) * cov_n[1] + j01 * j11 * cov_n[2];
+    const float c11   = j10 * j10 * cov_n[0] + 2.f * j10 * j11 * cov_n[1] + j11 * j11 * cov_n[2];
+    cov2D[0]          = c00 + kernel_size;
+    cov2D[1]          = c01;
+    cov2D[2]          = c11 + kernel_size;
+    const float det_0 = fmaxf(1e-6f, c00 * c11 - c01 * c01);
+    const float det_1 = fmaxf(1e-6f, cov2D[0] * cov2D[2] - c01 * c01);
+    coef              = sqrtf(det_0 / det_1);
+
+    // The depth plane's slopes per pixel offset transform with J^-T.
+    const float qx = ray_n.x / a, qy = ray_n.y / b;
+    *ray_plane     = {(cos_p * qx - sin_p * qy) / cam.fx, (sin_p * qx + cos_p * qy) / cam.fy, ray_n.z, ray_n.w};
+    *normal        = {normal_n.x * ex.x + normal_n.y * ey.x + normal_n.z * ez.x,
+                      normal_n.x * ex.y + normal_n.y * ey.y + normal_n.z * ez.y,
+                      normal_n.x * ex.z + normal_n.y * ey.z + normal_n.z * ez.z};
+    return true;
+}
+
 // Perform initial steps for each Gaussian prior to rasterization.
-template <int C>
+template <int C, bool KB4>
 __global__ void preprocessCUDA(
     const int P, int SHD, int SHM, int SGD, int SGM,
     const float* orig_points,
@@ -312,7 +376,8 @@ __global__ void preprocessCUDA(
     const dim3 grid,
     uint32_t* tiles_touched,
     bool prefiltered,
-    bool* conditions) {
+    bool* conditions,
+    const CudaRasterizer::KB4Camera kb4) {
     auto idx = cg::this_grid().thread_rank();
     if (idx >= P)
         return;
@@ -323,13 +388,15 @@ __global__ void preprocessCUDA(
     tiles_touched[idx] = 0;
     // Perform near culling, quit if outside.
     const float3 p_orig = {orig_points[3 * idx], orig_points[3 * idx + 1], orig_points[3 * idx + 2]};
-    float3 p_view;
-    if (!in_frustum(p_orig, viewmatrix, projmatrix, prefiltered, p_view))
-        return;
-    // Transform point by projecting
-    float4 p_hom  = transformPoint4x4(p_orig, projmatrix);
-    float p_w     = 1.0f / (p_hom.w + 0.0000001f);
-    float3 p_proj = {p_hom.x * p_w, p_hom.y * p_w, p_hom.z * p_w};
+    float3 p_view, p_proj;
+    if constexpr (!KB4) {
+        if (!in_frustum(p_orig, viewmatrix, projmatrix, prefiltered, p_view))
+            return;
+        // Transform point by projecting
+        float4 p_hom = transformPoint4x4(p_orig, projmatrix);
+        float p_w    = 1.0f / (p_hom.w + 0.0000001f);
+        p_proj       = {p_hom.x * p_w, p_hom.y * p_w, p_hom.z * p_w};
+    }
 
     // If 3D covariance matrix is precomputed, use it, otherwise compute
     // from scaling and rotation parameters.
@@ -341,8 +408,15 @@ __global__ void preprocessCUDA(
     // Compute 2D screen-space covariance matrix
     float cov2D[3];
     float ceof;
-    computeCov2D(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, kernel_size, cov3D, viewmatrix, cov2D,
-                 normals + idx, ray_planes + idx, ceof, scales + idx, rotations + idx, scale_modifier);
+    float2 point_image;
+    if constexpr (KB4) {
+        if (!projectKB4(p_orig, viewmatrix, kb4, kernel_size, cov3D, scales + idx, rotations + idx, scale_modifier,
+                        p_view, point_image, cov2D, normals + idx, ray_planes + idx, ceof))
+            return;
+    } else {
+        computeCov2D(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, kernel_size, cov3D, viewmatrix, cov2D,
+                     normals + idx, ray_planes + idx, ceof, scales + idx, rotations + idx, scale_modifier);
+    }
 
     const float3 cov = {cov2D[0], cov2D[1], cov2D[2]};
 
@@ -361,7 +435,8 @@ __global__ void preprocessCUDA(
     float lambda1      = mid + sqrtf(fmaxf(0.1f, mid * mid - det));
     float lambda2      = mid - sqrtf(fmaxf(0.1f, mid * mid - det));
     float my_radius    = ceilf(3.f * sqrtf(fmaxf(lambda1, lambda2)));
-    float2 point_image = {ndc2Pix(p_proj.x, W), ndc2Pix(p_proj.y, H)};
+    if constexpr (!KB4)
+        point_image = {ndc2Pix(p_proj.x, W), ndc2Pix(p_proj.y, H)};
     uint2 rect_min, rect_max;
     getRect(point_image, my_radius, rect_min, rect_max, grid);
     if ((rect_max.x - rect_min.x) * (rect_max.y - rect_min.y) == 0)
@@ -388,7 +463,7 @@ __global__ void preprocessCUDA(
 // Main rasterization method. Collaboratively works on one tile per
 // block, each thread treats one pixel. Alternates between fetching
 // and rasterizing data.
-template <uint32_t CHANNELS, bool GEOMETRY, uint32_t SPLIT = 8, uint32_t SPLIT_ITERATIONS = 5>
+template <uint32_t CHANNELS, bool GEOMETRY, uint32_t SPLIT = 8, uint32_t SPLIT_ITERATIONS = 5, bool RAY_DISTANCE = false>
 __global__ void __launch_bounds__(BLOCK_X* BLOCK_Y)
     renderCUDA(
         const uint2* __restrict__ ranges,
@@ -652,7 +727,7 @@ __global__ void __launch_bounds__(BLOCK_X* BLOCK_Y)
         out_alpha[pix_id] = 1.f - T;
 
         if constexpr (GEOMETRY) {
-            out_mdepth[pix_id] = mDepth * rln;
+            out_mdepth[pix_id] = RAY_DISTANCE ? mDepth : mDepth * rln;
 #ifdef NORMALIZED_NORMAL
             float len_normal      = norm3df(Normal[0], Normal[1], Normal[2]);
             normal_length[pix_id] = len_normal;
@@ -690,18 +765,21 @@ void FORWARD::render(
     float* out_normal,
     float* out_mdepth,
     float* normal_length,
-    bool require_depth) {
-#define RENDER_CUDA_CALL(template_depth)                                                \
-    renderCUDA<NUM_CHANNELS, template_depth, SPLIT, SPLIT_ITERATIONS><<<grid, block>>>( \
-        ranges, point_list, W, H, means2D, conic_opacity, colors,                       \
-        ray_planes, normals, focal_x, focal_y,                                          \
-        n_contrib, max_contributor, bg_color, out_color, out_alpha,                     \
+    bool require_depth,
+    bool ray_distance) {
+#define RENDER_CUDA_CALL(template_depth, ray_dist)                                                \
+    renderCUDA<NUM_CHANNELS, template_depth, SPLIT, SPLIT_ITERATIONS, ray_dist><<<grid, block>>>( \
+        ranges, point_list, W, H, means2D, conic_opacity, colors,                                 \
+        ray_planes, normals, focal_x, focal_y,                                                    \
+        n_contrib, max_contributor, bg_color, out_color, out_alpha,                               \
         out_normal, out_mdepth, normal_length)
 
-    if (require_depth)
-        RENDER_CUDA_CALL(true);
+    if (require_depth && ray_distance)
+        RENDER_CUDA_CALL(true, true);
+    else if (require_depth)
+        RENDER_CUDA_CALL(true, false);
     else
-        RENDER_CUDA_CALL(false);
+        RENDER_CUDA_CALL(false, false);
 
 #undef RENDER_CUDA_CALL
 }
@@ -737,8 +815,10 @@ void FORWARD::preprocess(
     const dim3 grid,
     uint32_t* tiles_touched,
     bool prefiltered,
-    bool* condition) {
-    preprocessCUDA<NUM_CHANNELS><<<(P + 255) / 256, 256>>>(
+    bool* condition,
+    const CudaRasterizer::KB4Camera* kb4) {
+    auto kernel = kb4 ? preprocessCUDA<NUM_CHANNELS, true> : preprocessCUDA<NUM_CHANNELS, false>;
+    kernel<<<(P + 255) / 256, 256>>>(
         P, SHD, SHM, SGD, SGM,
         means3D,
         colors_precomp,
@@ -769,5 +849,6 @@ void FORWARD::preprocess(
         grid,
         tiles_touched,
         prefiltered,
-        condition);
+        condition,
+        kb4 ? *kb4 : CudaRasterizer::KB4Camera{});
 }

@@ -16,11 +16,13 @@ def render_ours(
     require_coord : bool = False,
     require_depth : bool = True,
     colors_precomp : Optional[torch.Tensor]=None,
+    camera_settings : Optional[dict]=None,
 ):
     """
     Render the scene. 
     
     Background tensor (bg_color) must be on GPU!
+    camera_settings: extra GaussianRasterizationSettings fields, e.g. camera_model="kb4" and its intrinsics.
     """
 
     # Set up rasterization configuration
@@ -49,7 +51,8 @@ def render_ours(
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         require_depth = require_depth,
-        debug=pipe.debug
+        debug=pipe.debug,
+        **(camera_settings or {}),
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)

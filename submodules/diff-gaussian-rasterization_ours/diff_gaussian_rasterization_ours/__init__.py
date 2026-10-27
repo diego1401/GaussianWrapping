@@ -20,6 +20,20 @@ def cpu_deep_copy_tuple(input_tuple):
     return tuple(copied_tensors)
 
 
+def _kb4_params(raster_settings):
+    s = raster_settings
+    if s.camera_model == "pinhole":
+        return None
+    if s.camera_model == "kb4":
+        return (s.fx, s.fy, s.cx, s.cy, s.k1, s.k2, s.k3, s.k4, s.theta_max)
+    raise ValueError(f"camera_model must be 'pinhole' or 'kb4', got {s.camera_model!r}")
+
+
+def _require_pinhole(raster_settings, operation):
+    if raster_settings.camera_model != "pinhole":
+        raise NotImplementedError(f"{operation} supports only camera_model='pinhole'")
+
+
 def rasterize_gaussians(
     means3D,
     means2D,
@@ -95,6 +109,7 @@ class _RasterizeGaussians(torch.autograd.Function):
             raster_settings.prefiltered,
             raster_settings.require_depth,
             raster_settings.debug,
+            _kb4_params(raster_settings),
         )
 
         # Invoke C++/CUDA rasterizer
@@ -135,6 +150,7 @@ class _RasterizeGaussians(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_color, grad_radii, grad_mdepth, grad_alpha, grad_normal):
+        _require_pinhole(ctx.raster_settings, "backward")
         # Restore necessary values from context
         num_rendered = ctx.num_rendered
         raster_settings = ctx.raster_settings
@@ -267,6 +283,18 @@ class GaussianRasterizationSettings(NamedTuple):
     prefiltered: bool
     require_depth: bool
     debug: bool
+    # "kb4" is the OpenCV fisheye model. It ignores tanfovx, tanfovy and projmatrix, has no backward,
+    # and returns the median depth along each pixel's ray instead of along the optical axis.
+    camera_model: str = "pinhole"
+    fx: float = 0.0
+    fy: float = 0.0
+    cx: float = 0.0
+    cy: float = 0.0
+    k1: float = 0.0
+    k2: float = 0.0
+    k3: float = 0.0
+    k4: float = 0.0
+    theta_max: float = 0.0  # [rad] the caller masks pixels outside this image circle
 
 
 class GaussianRasterizer(nn.Module):
@@ -276,6 +304,7 @@ class GaussianRasterizer(nn.Module):
 
     def markVisible(self, positions):
         # Mark visible points (based on frustum culling for camera) with a boolean
+        _require_pinhole(self.raster_settings, "markVisible")
         with torch.no_grad():
             raster_settings = self.raster_settings
             visible = _C.mark_visible(positions, raster_settings.viewmatrix, raster_settings.projmatrix)
@@ -347,6 +376,7 @@ class GaussianRasterizer(nn.Module):
     ):
 
         raster_settings = self.raster_settings
+        _require_pinhole(raster_settings, "integrate")
 
         if ((scales is None or rotations is None) and cov3D_precomp is None) or (
             (scales is not None or rotations is not None) and cov3D_precomp is not None
@@ -413,6 +443,7 @@ class GaussianRasterizer(nn.Module):
     ):
 
         raster_settings = self.raster_settings
+        _require_pinhole(raster_settings, "evaluate_sdf")
 
         if ((scales is None or rotations is None) and cov3D_precomp is None) or (
             (scales is not None or rotations is not None) and cov3D_precomp is not None
@@ -468,6 +499,7 @@ class GaussianRasterizer(nn.Module):
         return depth, sdf, inside
 
     def sample_depth(self, points3D, means3D, opacities, scales=None, rotations=None, cov3D_precomp=None):
+        _require_pinhole(self.raster_settings, "sample_depth")
         if ((scales is None or rotations is None) and cov3D_precomp is None) or (
             (scales is not None or rotations is not None) and cov3D_precomp is not None
         ):

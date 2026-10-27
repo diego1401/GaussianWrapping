@@ -314,7 +314,8 @@ int CudaRasterizer::Rasterizer::forward(
     float* out_normal,
     int* radii,
     bool require_depth,
-    bool debug) {
+    bool debug,
+    const KB4Camera* kb4) {
     const float focal_y = height / (2.0f * tan_fovy);
     const float focal_x = width / (2.0f * tan_fovx);
 
@@ -373,7 +374,9 @@ int CudaRasterizer::Rasterizer::forward(
                    geomState.conic_opacity,
                    tile_grid,
                    geomState.tiles_touched,
-                   prefiltered),
+                   prefiltered,
+                   nullptr,
+                   kb4),
                debug)
     // Compute prefix sum over full list of touched tile counts by Gaussians
     // E.g., [2, 3, 0, 2, 1] -> [2, 5, 5, 7, 8]
@@ -442,7 +445,8 @@ int CudaRasterizer::Rasterizer::forward(
                    out_normal,
                    out_mdepth,
                    imgState.normal_length,
-                   require_depth),
+                   require_depth,
+                   kb4 != nullptr),
                debug);
     return num_rendered;
 }

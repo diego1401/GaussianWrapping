@@ -14,6 +14,7 @@
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "rasterizer.h"
 #include <cuda.h>
 #define GLM_FORCE_CUDA
 #include <glm/glm.hpp>
@@ -51,7 +52,8 @@ void preprocess(
     const dim3 grid,
     uint32_t* tiles_touched,
     bool prefiltered = false,
-    bool* condition = nullptr);
+    bool* condition = nullptr,
+    const CudaRasterizer::KB4Camera* kb4 = nullptr);
 
 // Main rasterization method.
 void render(
@@ -74,7 +76,8 @@ void render(
     float* out_normal,
     float* out_mdepth,
     float* normal_length,
-    bool require_depth);
+    bool require_depth,
+    bool ray_distance = false);
 } // namespace FORWARD
 
 #endif

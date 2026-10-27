@@ -27,6 +27,7 @@ constexpr int BLOCK_SIZE          = BLOCK_X * BLOCK_Y;
 constexpr int SAMPLE_BATCH_SIZE   = 2;
 constexpr float NEAR_PLANE        = 0.2f;
 constexpr float FAR_PLANE         = 100.f;
+constexpr float KB4_THETA_MARGIN  = 0.5f; // [rad] kb4 keeps means this far outside theta_max, so their splats reach the circle's edge
 constexpr float NORMALIZE_EPS     = 1.0E-12F;
 constexpr float MIN_TRANSMITTANCE = 0.45f;
 constexpr float TDELTA_NEGATIVE_GRAD_MUL = 1.0f;

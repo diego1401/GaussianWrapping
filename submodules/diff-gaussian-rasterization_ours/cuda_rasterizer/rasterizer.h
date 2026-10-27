@@ -17,6 +17,12 @@
 #include <vector>
 
 namespace CudaRasterizer {
+// OpenCV fisheye (Kannala-Brandt) camera with pixel centres at integer coordinates.
+struct KB4Camera {
+    float fx, fy, cx, cy, k1, k2, k3, k4;
+    float theta_max; // [rad] half-angle of the image circle
+};
+
 class Rasterizer {
 public:
     static void markVisible(
@@ -58,7 +64,8 @@ public:
         float* out_normal,
         int* radii         = nullptr,
         bool require_depth = true,
-        bool debug         = false);
+        bool debug         = false,
+        const KB4Camera* kb4 = nullptr);
 
     static void backward(
         std::function<char*(size_t)> geometryBuffer,

@@ -10,7 +10,9 @@
  */
 
 #pragma once
+#include <array>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <torch/extension.h>
 #include <tuple>
@@ -41,7 +43,8 @@ RasterizeGaussiansCUDA(
     const torch::Tensor& campos,
     const bool prefiltered,
     const bool require_depth,
-    const bool debug);
+    const bool debug,
+    const std::optional<std::array<float, 9>>& kb4); // fx, fy, cx, cy, k1, k2, k3, k4, theta_max
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 RasterizeGaussiansBackwardCUDA(
